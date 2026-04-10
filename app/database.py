@@ -25,12 +25,13 @@ class DatabaseConnection:
                 database=self.database,
                 user=self.user,
                 password=self.password,
-                port=self.port
+                port=self.port,
+                connect_timeout=3  # NUEVO: Si en 3 segundos no conecta, lanza error
             )
             print("[SISTEMA] Conexión a PostgreSQL establecida con éxito.")
             return connection
         except OperationalError as e:
-            print(f"[ERROR FATAL] No se pudo conectar a la base de datos: {e}")
+            print(f"[ERROR FATAL] No se pudo conectar a la base de datos:\n{e}")
             return None
 
 # Bloque de prueba: Solo se ejecuta si corremos este archivo directamente
