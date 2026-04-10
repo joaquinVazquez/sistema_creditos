@@ -1,2 +1,6 @@
+bcrypt==5.0.0
 psycopg2-binary==2.9.11
+PyQt6==6.11.0
+PyQt6-Qt6==6.11.0
+PyQt6_sip==13.11.1
 python-dotenv==1.2.2
