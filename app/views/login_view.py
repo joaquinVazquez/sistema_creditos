@@ -3,6 +3,7 @@ import bcrypt
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt6.QtCore import Qt
 from app.database import DatabaseConnection
+from app.views.dashboard_view import DashboardView
 
 class LoginWindow(QWidget):
     def __init__(self):
@@ -73,9 +74,10 @@ class LoginWindow(QWidget):
                 hash_guardado = resultado[0]
                 # Comparamos la contraseña plana con el hash de la BD usando bcrypt
                 if bcrypt.checkpw(password.encode('utf-8'), hash_guardado.encode('utf-8')):
-                    QMessageBox.information(self, "Acceso Concedido", "Bienvenido al sistema.")
-                    # AQUÍ: En el siguiente Sprint abriremos el Dashboard principal
-                    self.close() 
+                    # UX: Mostrar el panel principal y destruir el login
+                    self.dashboard = DashboardView()
+                    self.dashboard.show()
+                    self.close()
                 else:
                     QMessageBox.warning(self, "Acceso Denegado", "Contraseña incorrecta.")
             else:
