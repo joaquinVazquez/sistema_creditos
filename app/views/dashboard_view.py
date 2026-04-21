@@ -3,6 +3,8 @@ from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QTab
 from app.controllers.cliente_controller import ClienteController
 from app.views.cliente_form import ClienteForm
 from PyQt6.QtWidgets import QMessageBox
+from app.controllers.credito_controller import CreditoController
+from app.views.credito_form import CreditoForm
 
 class DashboardView(QMainWindow):
     def __init__(self):
@@ -10,6 +12,8 @@ class DashboardView(QMainWindow):
         self.setWindowTitle("Sistema de Créditos - Panel de Control")
         self.setMinimumSize(800, 600)
         self.controller = ClienteController()
+        self.controller = ClienteController()
+        self.credito_controller = CreditoController() # NUEVO
         
         self.setup_ui()
         self.cargar_datos()
@@ -25,6 +29,13 @@ class DashboardView(QMainWindow):
         self.btn_nuevo.setFixedWidth(150)
         self.btn_nuevo.setStyleSheet("background-color: #28a745; color: white; padding: 5px;")
         self.btn_nuevo.clicked.connect(self.abrir_formulario_cliente)
+
+        self.btn_credito = QPushButton("Otorgar Crédito")
+        self.btn_credito.setStyleSheet("background-color: #ff8c00; color: white; padding: 5px;")
+        self.btn_credito.clicked.connect(self.abrir_formulario_credito)
+        
+        layout.addWidget(self.btn_nuevo)
+        layout.addWidget(self.btn_credito) # Agrégalo debajo del botón de nuevo cliente
         
         # Tabla de datos
         self.tabla = QTableWidget()
@@ -67,3 +78,34 @@ class DashboardView(QMainWindow):
                 self.cargar_datos()
             else:
                 QMessageBox.critical(self, "Error", "No se pudo registrar al cliente.")
+
+    def abrir_formulario_credito(self):
+        """Detecta qué cliente está seleccionado y abre el modal de crédito."""
+        fila = self.tabla.currentRow()
+        
+        # UX: Validar que el usuario haya hecho clic en alguna fila
+        if fila == -1:
+            QMessageBox.warning(self, "Atención", "Por favor seleccione un cliente de la tabla primero.")
+            return
+
+        # Extraer RFC y Nombre de la celda visual
+        rfc = self.tabla.item(fila, 0).text()
+        nombre = self.tabla.item(fila, 1).text()
+
+        dialogo = CreditoForm(rfc, nombre, self)
+        if dialogo.exec():
+            datos = dialogo.get_data()
+            
+            # Validar que no preste $0.00
+            if datos['monto'] <= 0:
+                QMessageBox.warning(self, "Error", "El monto debe ser mayor a cero.")
+                return
+
+            exito = self.credito_controller.crear_credito(
+                datos['rfc'], datos['monto'], datos['tasa'], datos['plazos']
+            )
+
+            if exito:
+                QMessageBox.information(self, "Éxito", "Crédito generado y calculado correctamente.")
+            else:
+                QMessageBox.critical(self, "Error", "No se pudo generar el crédito.")
