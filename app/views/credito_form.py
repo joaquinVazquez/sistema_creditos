@@ -92,3 +92,26 @@ class CreditoForm(QDialog):
             "tasa": tasa,
             "plazos": semanas
         }
+    
+    def obtener_historial_por_rfc(self, rfc_cliente):
+        """Obtiene todos los créditos históricos de un cliente."""
+        conn = self.db.connect()
+        if not conn: return []
+        
+        try:
+            cursor = conn.cursor()
+            query = """
+                SELECT cr.id, cr.fecha_otorgamiento, cr.monto_original, 
+                       cr.tasa_interes_global, cr.plazos_semanas, cr.saldo_restante, cr.estado
+                FROM creditos cr
+                JOIN clientes cl ON cr.cliente_id = cl.id
+                WHERE cl.rfc = %s
+                ORDER BY cr.fecha_otorgamiento DESC, cr.id DESC
+            """
+            cursor.execute(query, (rfc_cliente,))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"[ERROR SQL] No se pudo obtener el historial: {e}")
+            return []
+        finally:
+            conn.close()
