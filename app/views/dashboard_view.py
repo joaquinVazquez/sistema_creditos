@@ -1,6 +1,8 @@
 # app/views/dashboard_view.py
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView
 from app.controllers.cliente_controller import ClienteController
+from app.views.cliente_form import ClienteForm
+from PyQt6.QtWidgets import QMessageBox
 
 class DashboardView(QMainWindow):
     def __init__(self):
@@ -22,6 +24,7 @@ class DashboardView(QMainWindow):
         self.btn_nuevo = QPushButton("Nuevo Cliente")
         self.btn_nuevo.setFixedWidth(150)
         self.btn_nuevo.setStyleSheet("background-color: #28a745; color: white; padding: 5px;")
+        self.btn_nuevo.clicked.connect(self.abrir_formulario_cliente)
         
         # Tabla de datos
         self.tabla = QTableWidget()
@@ -43,3 +46,24 @@ class DashboardView(QMainWindow):
             for col_idx, dato in enumerate(cliente):
                 item = QTableWidgetItem(str(dato))
                 self.tabla.setItem(fila_idx, col_idx, item)
+
+    def abrir_formulario_cliente(self):
+        # 2. Todo lo que va adentro debe tener 4 espacios extra (un nivel más de indentación)
+        dialogo = ClienteForm(self)
+        
+        if dialogo.exec():
+            datos = dialogo.get_data()
+            
+            if not datos['rfc'] or not datos['nombre']:
+                QMessageBox.warning(self, "Error", "RFC y Nombre son obligatorios.")
+                return
+
+            exito = self.controller.guardar_cliente(
+                datos['rfc'], datos['nombre'], datos['telefono'], datos['direccion']
+            )
+
+            if exito:
+                QMessageBox.information(self, "Éxito", "Cliente registrado correctamente.")
+                self.cargar_datos()
+            else:
+                QMessageBox.critical(self, "Error", "No se pudo registrar al cliente.")
