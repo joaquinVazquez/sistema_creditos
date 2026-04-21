@@ -64,3 +64,25 @@ class CreditoController:
             return []
         finally:
             conn.close()
+
+    def obtener_pagos_por_credito(self, credito_id):
+        """Devuelve el desglose de todos los abonos realizados a un crédito específico."""
+        conn = self.db.connect()
+        if not conn: return []
+        
+        try:
+            cursor = conn.cursor()
+            query = """
+                SELECT p.id, p.fecha_pago, p.monto_pagado, u.username
+                FROM pagos p
+                JOIN usuarios u ON p.usuario_id = u.id
+                WHERE p.credito_id = %s
+                ORDER BY p.fecha_pago DESC
+            """
+            cursor.execute(query, (credito_id,))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"[ERROR SQL] No se pudo obtener los abonos: {e}")
+            return []
+        finally:
+            conn.close()

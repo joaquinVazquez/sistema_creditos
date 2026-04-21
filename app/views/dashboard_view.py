@@ -1,7 +1,7 @@
 import csv
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QTableWidget, QTableWidgetItem, 
-                             QHeaderView, QMessageBox, QFileDialog)
+                             QHeaderView, QMessageBox, QFileDialog, QLabel) # <-- Agregamos QLabel aquí
 from PyQt6.QtCore import Qt
 
 # Importación de Controladores
@@ -38,25 +38,35 @@ class DashboardView(QMainWindow):
         """Define la interfaz siguiendo principios de UX y jerarquía visual."""
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
+        
+        # Le damos márgenes amplios al layout principal para que respire
         self.main_layout = QVBoxLayout(self.central_widget)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(15)
+
+        # --- Encabezado ---
+        self.lbl_titulo = QLabel("Panel de Control Operativo")
+        self.lbl_titulo.setStyleSheet("font-size: 22px; font-weight: bold; color: #2c3e50; background: transparent;")
+        self.main_layout.addWidget(self.lbl_titulo)
 
         # --- Barra Superior de Acciones (Layout Horizontal) ---
         self.layout_botones = QHBoxLayout()
+        self.layout_botones.setSpacing(10)
         
         self.btn_nuevo_cliente = QPushButton("Nuevo Cliente")
-        self.btn_nuevo_cliente.setStyleSheet("background-color: #0078D7; color: white; padding: 8px; font-weight: bold;")
+        self.btn_nuevo_cliente.setStyleSheet("background-color: #0078D7; color: white;")
         self.btn_nuevo_cliente.clicked.connect(self.abrir_formulario_cliente)
 
         self.btn_otorgar_credito = QPushButton("Otorgar Crédito")
-        self.btn_otorgar_credito.setStyleSheet("background-color: #ff8c00; color: white; padding: 8px; font-weight: bold;")
+        self.btn_otorgar_credito.setStyleSheet("background-color: #ff8c00; color: white;")
         self.btn_otorgar_credito.clicked.connect(self.abrir_formulario_credito)
 
         self.btn_cobrar = QPushButton("Cobrar Abono")
-        self.btn_cobrar.setStyleSheet("background-color: #28a745; color: white; padding: 8px; font-weight: bold;")
+        self.btn_cobrar.setStyleSheet("background-color: #28a745; color: white;")
         self.btn_cobrar.clicked.connect(self.gestionar_pagos)
 
-        self.btn_historial = QPushButton("Ver Historial")
-        self.btn_historial.setStyleSheet("background-color: #17a2b8; color: white; padding: 8px; font-weight: bold;")
+        self.btn_historial = QPushButton("Estado de Cuenta")
+        self.btn_historial.setStyleSheet("background-color: #17a2b8; color: white;")
         self.btn_historial.clicked.connect(self.abrir_historial)
 
         self.layout_botones.addWidget(self.btn_nuevo_cliente)
@@ -67,21 +77,26 @@ class DashboardView(QMainWindow):
 
         # --- Tabla Principal ---
         self.tabla = QTableWidget()
+        self.tabla.setAlternatingRowColors(True) # Activa el diseño cebra
         self.tabla.setColumnCount(4)
         self.tabla.setHorizontalHeaderLabels(["RFC", "Nombre Completo", "Teléfono", "Fecha Registro"])
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabla.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.tabla.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 
         # --- Barra Inferior (Utilidades) ---
-        self.btn_exportar = QPushButton("Exportar Reporte (CSV)")
-        self.btn_exportar.setStyleSheet("background-color: #6c757d; color: white; padding: 5px;")
+        self.layout_inferior = QHBoxLayout()
+        self.btn_exportar = QPushButton("Exportar Base a CSV")
+        self.btn_exportar.setStyleSheet("background-color: #6c757d; color: white;")
         self.btn_exportar.clicked.connect(self.exportar_csv)
+        self.layout_inferior.addStretch() # Empuja el botón a la derecha
+        self.layout_inferior.addWidget(self.btn_exportar)
 
         # Ensamblar Layout Principal
         self.main_layout.addLayout(self.layout_botones)
         self.main_layout.addWidget(self.tabla)
-        self.main_layout.addWidget(self.btn_exportar)
+        self.main_layout.addLayout(self.layout_inferior)
 
     def aplicar_rbac(self):
         """Restricción de interfaz según rol."""
