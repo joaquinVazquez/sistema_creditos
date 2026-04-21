@@ -5,6 +5,8 @@ from app.views.cliente_form import ClienteForm
 from PyQt6.QtWidgets import QMessageBox
 from app.controllers.credito_controller import CreditoController
 from app.views.credito_form import CreditoForm
+from app.controllers.pago_controller import PagoController
+from app.views.pago_form import PagoForm
 
 class DashboardView(QMainWindow):
     def __init__(self):
@@ -33,6 +35,11 @@ class DashboardView(QMainWindow):
         self.btn_credito = QPushButton("Otorgar Crédito")
         self.btn_credito.setStyleSheet("background-color: #ff8c00; color: white; padding: 5px;")
         self.btn_credito.clicked.connect(self.abrir_formulario_credito)
+
+        self.btn_cobrar = QPushButton("Cobrar / Estado Cuenta")
+        self.btn_cobrar.setStyleSheet("background-color: #28a745; color: white; padding: 5px;")
+        self.btn_cobrar.clicked.connect(self.gestionar_pagos)
+        layout.addWidget(self.btn_cobrar)
         
         layout.addWidget(self.btn_nuevo)
         layout.addWidget(self.btn_credito) # Agrégalo debajo del botón de nuevo cliente
@@ -109,3 +116,33 @@ class DashboardView(QMainWindow):
                 QMessageBox.information(self, "Éxito", "Crédito generado y calculado correctamente.")
             else:
                 QMessageBox.critical(self, "Error", "No se pudo generar el crédito.")
+
+    def gestionar_pagos(self):
+        fila = self.tabla.currentRow()
+        if fila == -1:
+            QMessageBox.warning(self, "Atención", "Seleccione un cliente para ver sus deudas.")
+            return
+
+        rfc = self.tabla.item(fila, 0).text()
+        pago_ctrl = PagoController()
+        creditos = pago_ctrl.obtener_creditos_cliente(rfc)
+
+        if not creditos:
+            QMessageBox.information(self, "Sin Deuda", "Este cliente no tiene créditos activos con saldo pendiente.")
+            return
+
+        # Para simplificar el MVP, tomamos el crédito más antiguo con saldo
+        # En una versión avanzada, mostraríamos una lista para elegir cuál crédito pagar
+        id_credito, monto_orig, saldo, estado, fecha = creditos[0]
+
+        dialogo = PagoForm(id_credito, saldo, self)
+        if dialogo.exec():
+            monto_abono = dialogo.get_monto()
+            if monto_abono <= 0: return
+
+            # Nota: usuario_id=1 por ahora (Admin), en el futuro vendrá del Login
+            if pago_ctrl.registrar_pago(id_credito, 1, monto_abono):
+                QMessageBox.information(self, "Éxito", "Pago registrado y saldo actualizado.")
+                self.cargar_datos() # Refrescar
+            else:
+                QMessageBox.critical(self, "Error", "Error al procesar el pago.")
