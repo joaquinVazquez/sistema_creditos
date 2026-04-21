@@ -66,16 +66,16 @@ class LoginWindow(QWidget):
 
         try:
             cursor = conn.cursor()
-            # Buscamos el hash almacenado para ese usuario
-            cursor.execute("SELECT password_hash FROM usuarios WHERE username = %s AND activo = TRUE", (username,))
+            # Modificamos la consulta para traer también el ID y el Rol
+            cursor.execute("SELECT id, rol_id, password_hash FROM usuarios WHERE username = %s AND activo = TRUE", (username,))
             resultado = cursor.fetchone()
 
             if resultado:
-                hash_guardado = resultado[0]
-                # Comparamos la contraseña plana con el hash de la BD usando bcrypt
+                usuario_id, rol_id, hash_guardado = resultado
+                
                 if bcrypt.checkpw(password.encode('utf-8'), hash_guardado.encode('utf-8')):
-                    # UX: Mostrar el panel principal y destruir el login
-                    self.dashboard = DashboardView()
+                    # Pasamos el usuario_id y rol_id al Dashboard
+                    self.dashboard = DashboardView(usuario_id, rol_id)
                     self.dashboard.show()
                     self.close()
                 else:

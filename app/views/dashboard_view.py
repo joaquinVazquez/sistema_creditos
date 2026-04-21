@@ -7,17 +7,24 @@ from app.controllers.credito_controller import CreditoController
 from app.views.credito_form import CreditoForm
 from app.controllers.pago_controller import PagoController
 from app.views.pago_form import PagoForm
+import csv
+from PyQt6.QtWidgets import QFileDialog # Para abrir la ventana de "Guardar como..."
 
 class DashboardView(QMainWindow):
-    def __init__(self):
+    def __init__(self, usuario_id=1, rol_id=1): # Valores por defecto por seguridad
         super().__init__()
         self.setWindowTitle("Sistema de Créditos - Panel de Control")
         self.setMinimumSize(800, 600)
+        
+        # Propagación de sesión
+        self.usuario_id = usuario_id
+        self.rol_id = rol_id 
+        
         self.controller = ClienteController()
-        self.controller = ClienteController()
-        self.credito_controller = CreditoController() # NUEVO
+        self.credito_controller = CreditoController()
         
         self.setup_ui()
+        self.aplicar_rbac() # Validar permisos
         self.cargar_datos()
 
     def setup_ui(self):
@@ -43,6 +50,12 @@ class DashboardView(QMainWindow):
         
         layout.addWidget(self.btn_nuevo)
         layout.addWidget(self.btn_credito) # Agrégalo debajo del botón de nuevo cliente
+
+        # NUEVO BOTÓN: Exportar
+        self.btn_exportar = QPushButton("Exportar a CSV")
+        self.btn_exportar.setStyleSheet("background-color: #6c757d; color: white; padding: 5px;")
+        self.btn_exportar.clicked.connect(self.exportar_csv)
+        layout.addWidget(self.btn_exportar)
         
         # Tabla de datos
         self.tabla = QTableWidget()
@@ -141,8 +154,41 @@ class DashboardView(QMainWindow):
             if monto_abono <= 0: return
 
             # Nota: usuario_id=1 por ahora (Admin), en el futuro vendrá del Login
-            if pago_ctrl.registrar_pago(id_credito, 1, monto_abono):
+            if pago_ctrl.registrar_pago(id_credito, self.usuario_id, monto_abono):
                 QMessageBox.information(self, "Éxito", "Pago registrado y saldo actualizado.")
                 self.cargar_datos() # Refrescar
             else:
                 QMessageBox.critical(self, "Error", "Error al procesar el pago.")
+
+    def aplicar_rbac(self):
+        """Oculta funciones críticas si el usuario no es Administrador (rol_id = 1)."""
+        if self.rol_id != 1:
+            self.btn_credito.setVisible(False)
+            self.btn_exportar.setVisible(False)
+            self.setWindowTitle("Sistema de Créditos - Módulo de Cajas")
+
+    def exportar_csv(self):
+        """Convierte los datos del QTableWidget a un archivo CSV."""
+        ruta_archivo, _ = QFileDialog.getSaveFileName(self, "Guardar Reporte", "", "CSV Files (*.csv)")
+        
+        if not ruta_archivo: return # El usuario canceló
+        
+        try:
+            with open(ruta_archivo, mode='w', newline='', encoding='utf-8-sig') as archivo:
+                writer = csv.writer(archivo)
+                
+                # 1. Escribir encabezados
+                encabezados = [self.tabla.horizontalHeaderItem(i).text() for i in range(self.tabla.columnCount())]
+                writer.writerow(encabezados)
+                
+                # 2. Escribir filas de datos
+                for fila in range(self.tabla.rowCount()):
+                    datos_fila = []
+                    for columna in range(self.tabla.columnCount()):
+                        item = self.tabla.item(fila, columna)
+                        datos_fila.append(item.text() if item is not None else "")
+                    writer.writerow(datos_fila)
+                    
+            QMessageBox.information(self, "Éxito", "Reporte exportado correctamente.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo guardar el archivo: {e}")
