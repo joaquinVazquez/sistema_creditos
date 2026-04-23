@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QHeaderView, QMessageBox, QFileDialog, QLabel, QLineEdit)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
+from app.utils.ticket_generator import generar_ticket_pago
 
 # Importación de Controladores
 from app.controllers.cliente_controller import ClienteController
@@ -188,26 +189,60 @@ class DashboardView(QMainWindow):
         dialogo = CreditoForm(rfc, nombre, self)
         if dialogo.exec():
             d = dialogo.get_data()
+            
+            # PARCHE QA: Validación de negocio estricta
+            if d['monto'] <= 0:
+                QMessageBox.warning(self, "Operación Rechazada", "El monto a financiar debe ser mayor a $0.00.")
+                return
+
             if self.credito_ctrl.crear_credito(d['rfc'], d['monto'], d['tasa'], d['plazos']):
                 QMessageBox.information(self, "Éxito", "Crédito generado con éxito.")
+                self.cargar_datos() # Refrescar la UI
             else:
                 QMessageBox.critical(self, "Error", "No se pudo procesar el crédito.")
 
     def gestionar_pagos(self):
         fila = self.tabla.currentRow()
         if fila == -1: return QMessageBox.warning(self, "Atención", "Seleccione un cliente primero.")
+        
         rfc = self.tabla.item(fila, 0).text()
+        nombre_cliente = self.tabla.item(fila, 1).text()
         creditos_activos = self.pago_ctrl.obtener_creditos_cliente(rfc)
 
-        if not creditos_activos: return QMessageBox.information(self, "Sin Deuda", "El cliente no tiene saldos pendientes.")
+        if not creditos_activos: 
+            return QMessageBox.information(self, "Sin Deuda", "El cliente no tiene saldos pendientes.")
 
-        id_credito, monto_orig, saldo, estado, fecha = creditos_activos[0]
-        dialogo = PagoForm(id_credito, saldo, self)
+        id_credito, monto_orig, saldo_actual, estado, fecha = creditos_activos[0]
+        
+        # PARCHE DE TIPADO: Convertir Decimal de SQL a float de Python
+        saldo_actual = float(saldo_actual)
+        
+        dialogo = PagoForm(id_credito, saldo_actual, self)
         if dialogo.exec():
-            monto = dialogo.get_monto()
-            if self.pago_ctrl.registrar_pago(id_credito, self.usuario_id, monto):
-                QMessageBox.information(self, "Éxito", "Abono procesado correctamente.")
-                self.cargar_datos()
+            monto_abono = float(dialogo.get_monto()) # Garantizar que sea float
+            
+            # PARCHE QA: Validar montos lógicos antes de tocar BD
+            if monto_abono <= 0 or monto_abono > saldo_actual:
+                QMessageBox.warning(self, "Error Operativo", "Monto inválido. No puede ser 0 ni mayor al saldo restante.")
+                return
+
+            if self.pago_ctrl.registrar_pago(id_credito, self.usuario_id, monto_abono):
+                # Calcular el nuevo saldo (ahora ambos son float)
+                nuevo_saldo = saldo_actual - monto_abono
+                
+                # Generar el PDF
+                ruta_ticket = generar_ticket_pago(rfc, nombre_cliente, monto_abono, nuevo_saldo)
+                
+                QMessageBox.information(self, "Éxito", "Abono procesado. Generando comprobante...")
+                self.cargar_datos() # Refrescar la tabla
+                
+                # Abrir el PDF automáticamente
+                try:
+                    os.startfile(os.path.abspath(ruta_ticket))
+                except Exception as e:
+                    print(f"Error al abrir PDF: {e}")
+            else:
+                QMessageBox.critical(self, "Error", "Fallo al registrar el abono en la base de datos.")
 
     def abrir_historial(self):
         fila = self.tabla.currentRow()
