@@ -15,6 +15,10 @@ class ClienteForm(QDialog):
 
         self.txt_rfc = QLineEdit()
         self.txt_nombre = QLineEdit()
+
+        lbl_header = QLabel("Registro de Expediente Digital")
+        lbl_header.setStyleSheet("font-size: 18px; font-weight: bold; color: #0078D7; margin-bottom: 10px;")
+        layout.addWidget(lbl_header)
         
         # Botones para seleccionar archivos
         self.btn_foto = QPushButton("Seleccionar Foto")

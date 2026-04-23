@@ -2,7 +2,8 @@ import csv
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QTableWidget, QTableWidgetItem, 
-                             QHeaderView, QMessageBox, QFileDialog, QLabel, QLineEdit)
+                             QHeaderView, QMessageBox, QFileDialog, QLabel, 
+                             QLineEdit, QFrame)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 from app.utils.ticket_generator import generar_ticket_pago
@@ -41,6 +42,8 @@ class DashboardView(QMainWindow):
         self.main_layout = QVBoxLayout(self.central_widget)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
+        self.layout_kpis = QHBoxLayout()
+        self.layout_kpis.setSpacing(20)
 
         # --- Encabezado ---
         self.lbl_titulo = QLabel("Panel de Control Operativo")
@@ -140,6 +143,17 @@ class DashboardView(QMainWindow):
         self.layout_inferior.addWidget(self.btn_exportar)
         self.main_layout.addLayout(self.layout_inferior)
 
+        # Crear Tarjetas (Card UI)
+        self.card_capital = self.crear_card_kpi("CAPITAL EN CALLE", "$ 0.00", "#0078D7")
+        self.card_ingresos = self.crear_card_kpi("INGRESOS HOY", "$ 0.00", "#28a745")
+        self.card_clientes = self.crear_card_kpi("CLIENTES ACTIVOS", "0", "#6f42c1")
+
+        self.layout_kpis.addWidget(self.card_capital)
+        self.layout_kpis.addWidget(self.card_ingresos)
+        self.layout_kpis.addWidget(self.card_clientes)
+
+        self.main_layout.addLayout(self.layout_kpis)
+
     def aplicar_rbac(self):
         if self.rol_id != 1:
             self.btn_exportar.setVisible(False)
@@ -147,11 +161,15 @@ class DashboardView(QMainWindow):
             self.setWindowTitle("Sistema de Créditos - Módulo de Operaciones")
 
     def cargar_datos(self):
+        """Refresca tanto la tabla de clientes como el panel de métricas (KPIs)."""
         clientes = self.cliente_ctrl.obtener_todos()
         self.tabla.setRowCount(len(clientes))
         for i, cliente in enumerate(clientes):
             for j, dato in enumerate(cliente):
                 self.tabla.setItem(i, j, QTableWidgetItem(str(dato)))
+        
+        # VINCULACIÓN CRÍTICA: Actualiza las tarjetas superiores
+        self.actualizar_kpis()
 
     def filtrar_tabla(self, texto):
         texto = texto.lower()
@@ -309,3 +327,36 @@ class DashboardView(QMainWindow):
             os.startfile(ruta_directorio)
         else:
             QMessageBox.warning(self, "Expediente Incompleto", f"Aún no hay documentos físicos para el cliente {rfc}.")
+
+    def crear_card_kpi(self, titulo, valor_init, color):
+        """Construye un componente visual de tarjeta para métricas."""
+        card = QFrame()
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: white;
+                border-left: 5px solid {color};
+                border-radius: 8px;
+                padding: 10px;
+            }}
+        """)
+        layout = QVBoxLayout(card)
+        
+        lbl_tit = QLabel(titulo)
+        lbl_tit.setStyleSheet("color: #6c757d; font-size: 11px; font-weight: bold; border:none;")
+        
+        lbl_val = QLabel(valor_init)
+        lbl_val.setStyleSheet(f"color: {color}; font-size: 20px; font-weight: bold; border:none;")
+        
+        layout.addWidget(lbl_tit)
+        layout.addWidget(lbl_val)
+        
+        # Guardamos la referencia al label del valor para actualizarlo después
+        card.lbl_valor = lbl_val
+        return card
+
+    def actualizar_kpis(self):
+        """Refresca los números del panel analítico."""
+        capital, ingresos, clientes = self.credito_ctrl.obtener_metricas_dashboard()
+        self.card_capital.lbl_valor.setText(f"$ {capital:,.2f}")
+        self.card_ingresos.lbl_valor.setText(f"$ {ingresos:,.2f}")
+        self.card_clientes.lbl_valor.setText(str(clientes))

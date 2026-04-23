@@ -86,3 +86,30 @@ class CreditoController:
             return []
         finally:
             conn.close()
+
+    def obtener_metricas_dashboard(self):
+        """Calcula los KPIs usando el esquema exacto de la base de datos."""
+        conn = self.db.connect()
+        if not conn: return (0, 0, 0)
+        try:
+            cursor = conn.cursor()
+            
+            # 1. Capital Activo (Usando saldo_restante)
+            cursor.execute("SELECT COALESCE(SUM(saldo_restante), 0) FROM creditos WHERE UPPER(estado) = 'ACTIVO'")
+            capital = cursor.fetchone()[0]
+            
+            # 2. Ingresos del Día (Usando monto_pagado)
+            cursor.execute("SELECT COALESCE(SUM(monto_pagado), 0) FROM pagos WHERE DATE(fecha_pago) = CURRENT_DATE")
+            ingresos = cursor.fetchone()[0]
+            
+            # 3. Cartera de Clientes (Usando cliente_id)
+            cursor.execute("SELECT COUNT(DISTINCT cliente_id) FROM creditos WHERE UPPER(estado) = 'ACTIVO'")
+            clientes = cursor.fetchone()[0]
+            
+            return (float(capital), float(ingresos), int(clientes))
+            
+        except Exception as e:
+            print(f"\n[ERROR EN SQL DE KPIs]: {e}\n")
+            return (0, 0, 0)
+        finally:
+            conn.close()
