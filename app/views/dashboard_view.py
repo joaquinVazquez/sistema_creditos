@@ -217,7 +217,7 @@ class DashboardView(QMainWindow):
         # PARCHE DE TIPADO: Convertir Decimal de SQL a float de Python
         saldo_actual = float(saldo_actual)
         
-        dialogo = PagoForm(id_credito, saldo_actual, self)
+        dialogo = PagoForm(id_credito, saldo_actual, nombre_cliente, self)
         if dialogo.exec():
             monto_abono = float(dialogo.get_monto()) # Garantizar que sea float
             
