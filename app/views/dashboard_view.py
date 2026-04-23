@@ -1,7 +1,7 @@
 import csv
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QTableWidget, QTableWidgetItem, 
-                             QHeaderView, QMessageBox, QFileDialog, QLabel) # <-- Agregamos QLabel aquí
+                             QHeaderView, QMessageBox, QFileDialog, QLabel, QLineEdit)
 from PyQt6.QtCore import Qt
 
 # Importación de Controladores
@@ -75,6 +75,15 @@ class DashboardView(QMainWindow):
         self.layout_botones.addWidget(self.btn_historial)
         self.layout_botones.addStretch() # Empuja los botones a la izquierda
 
+        # --- Barra de Búsqueda Dinámica ---
+        self.txt_buscar = QLineEdit()
+        self.txt_buscar.setPlaceholderText("🔍 Buscar cliente por RFC o Nombre...")
+        self.txt_buscar.setStyleSheet("font-size: 14px; padding: 8px; margin-bottom: 5px;")
+        self.txt_buscar.textChanged.connect(self.filtrar_tabla) # UX: Reacciona a cada tecla
+        
+        self.main_layout.addLayout(self.layout_botones)
+        self.main_layout.addWidget(self.txt_buscar)
+
         # --- Tabla Principal ---
         self.tabla = QTableWidget()
         self.tabla.setAlternatingRowColors(True) # Activa el diseño cebra
@@ -117,9 +126,27 @@ class DashboardView(QMainWindow):
         dialogo = ClienteForm(self)
         if dialogo.exec():
             d = dialogo.get_data()
-            if self.cliente_ctrl.guardar_cliente(d['rfc'], d['nombre'], d['telefono'], d['direccion']):
-                QMessageBox.information(self, "Éxito", "Cliente registrado.")
+            
+            # Validación de UX: Obligar a poner RFC
+            if not d['rfc'] or not d['nombre']:
+                QMessageBox.warning(self, "Error", "RFC y Nombre son obligatorios.")
+                return
+
+            # Inyectamos los nuevos campos de foto e ine al controlador
+            exito = self.cliente_ctrl.guardar_cliente(
+                d['rfc'], 
+                d['nombre'], 
+                d['telefono'], 
+                d['direccion'], 
+                d['foto'], 
+                d['ine']
+            )
+
+            if exito:
+                QMessageBox.information(self, "Éxito", "Expediente de cliente registrado.")
                 self.cargar_datos()
+            else:
+                QMessageBox.critical(self, "Error", "No se pudo registrar el expediente.")
 
     def abrir_formulario_credito(self):
         fila = self.tabla.currentRow()
@@ -186,3 +213,18 @@ class DashboardView(QMainWindow):
             QMessageBox.information(self, "Éxito", "Reporte generado.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Fallo al exportar: {e}")
+
+    def filtrar_tabla(self, texto):
+        """Filtra visualmente las filas del QTableWidget en tiempo real."""
+        texto = texto.lower()
+        for fila in range(self.tabla.rowCount()):
+            mostrar_fila = False
+            # Iterar solo por las columnas 0 (RFC) y 1 (Nombre)
+            for columna in (0, 1):
+                item = self.tabla.item(fila, columna)
+                if item and texto in item.text().lower():
+                    mostrar_fila = True
+                    break
+            
+            # Ocultar la fila si no hay coincidencia
+            self.tabla.setRowHidden(fila, not mostrar_fila)

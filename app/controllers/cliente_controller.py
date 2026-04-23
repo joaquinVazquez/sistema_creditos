@@ -23,22 +23,19 @@ class ClienteController:
             conn.close()
 
     
-    def guardar_cliente(self, rfc, nombre, telefono, direccion):
-        """Inserta un nuevo cliente en la base de datos."""
+    def guardar_cliente(self, rfc, nombre, telefono, direccion, foto_path=None, ine_path=None):
         conn = self.db.connect()
-        if not conn: return False
-        
         try:
             cursor = conn.cursor()
             query = """
-                INSERT INTO clientes (rfc, nombre_completo, telefono, direccion)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO clientes (rfc, nombre_completo, telefono, direccion, foto_path, ine_path)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """
-            cursor.execute(query, (rfc, nombre, telefono, direccion))
+            cursor.execute(query, (rfc, nombre, telefono, direccion, foto_path, ine_path))
             conn.commit()
             return True
         except Exception as e:
-            print(f"[ERROR SQL] No se pudo guardar: {e}")
+            print(f"Error: {e}")
             return False
         finally:
             conn.close()
