@@ -39,3 +39,17 @@ class ClienteController:
             return False
         finally:
             conn.close()
+
+    def obtener_expediente(self, rfc):
+        """Obtiene las rutas físicas de los documentos asociados a un cliente."""
+        conn = self.db.connect()
+        if not conn: return None
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT foto_path, ine_path FROM clientes WHERE rfc = %s", (rfc,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"[ERROR SQL] No se pudo obtener el expediente: {e}")
+            return None
+        finally:
+            conn.close()

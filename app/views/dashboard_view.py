@@ -1,8 +1,10 @@
 import csv
+import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QMessageBox, QFileDialog, QLabel, QLineEdit)
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap
 
 # Importación de Controladores
 from app.controllers.cliente_controller import ClienteController
@@ -19,13 +21,11 @@ class DashboardView(QMainWindow):
     def __init__(self, usuario_id=1, rol_id=1):
         super().__init__()
         self.setWindowTitle("Sistema de Gestión de Créditos - Panel de Control")
-        self.setMinimumSize(900, 600)
+        self.setMinimumSize(1000, 650) # Aumentamos un poco el ancho base
         
-        # Propagación de Sesión y Roles
         self.usuario_id = usuario_id
         self.rol_id = rol_id
         
-        # Inicialización de Controladores
         self.cliente_ctrl = ClienteController()
         self.credito_ctrl = CreditoController()
         self.pago_ctrl = PagoController()
@@ -35,11 +35,8 @@ class DashboardView(QMainWindow):
         self.cargar_datos()
 
     def setup_ui(self):
-        """Define la interfaz siguiendo principios de UX y jerarquía visual."""
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-        
-        # Le damos márgenes amplios al layout principal para que respire
         self.main_layout = QVBoxLayout(self.central_widget)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
@@ -49,7 +46,7 @@ class DashboardView(QMainWindow):
         self.lbl_titulo.setStyleSheet("font-size: 22px; font-weight: bold; color: #2c3e50; background: transparent;")
         self.main_layout.addWidget(self.lbl_titulo)
 
-        # --- Barra Superior de Acciones (Layout Horizontal) ---
+        # --- Barra Superior de Acciones ---
         self.layout_botones = QHBoxLayout()
         self.layout_botones.setSpacing(10)
         
@@ -73,75 +70,110 @@ class DashboardView(QMainWindow):
         self.layout_botones.addWidget(self.btn_otorgar_credito)
         self.layout_botones.addWidget(self.btn_cobrar)
         self.layout_botones.addWidget(self.btn_historial)
-        self.layout_botones.addStretch() # Empuja los botones a la izquierda
+        self.layout_botones.addStretch()
 
-        # --- Barra de Búsqueda Dinámica ---
+        self.main_layout.addLayout(self.layout_botones)
+
+        # --- Barra de Búsqueda ---
         self.txt_buscar = QLineEdit()
         self.txt_buscar.setPlaceholderText("🔍 Buscar cliente por RFC o Nombre...")
         self.txt_buscar.setStyleSheet("font-size: 14px; padding: 8px; margin-bottom: 5px;")
-        self.txt_buscar.textChanged.connect(self.filtrar_tabla) # UX: Reacciona a cada tecla
-        
-        self.main_layout.addLayout(self.layout_botones)
+        self.txt_buscar.textChanged.connect(self.filtrar_tabla)
         self.main_layout.addWidget(self.txt_buscar)
 
-        # --- Tabla Principal ---
+        # ==========================================
+        # ZONA CENTRAL DIVIDIDA (Tabla + Perfil)
+        # ==========================================
+        self.layout_central = QHBoxLayout()
+        
+        # 1. Tabla Principal
         self.tabla = QTableWidget()
-        self.tabla.setAlternatingRowColors(True) # Activa el diseño cebra
+        self.tabla.setAlternatingRowColors(True)
         self.tabla.setColumnCount(4)
         self.tabla.setHorizontalHeaderLabels(["RFC", "Nombre Completo", "Teléfono", "Fecha Registro"])
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabla.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabla.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        # Señal reactiva: Al hacer clic en un cliente, actualizar panel derecho
+        self.tabla.itemSelectionChanged.connect(self.actualizar_panel_perfil)
+        
+        self.layout_central.addWidget(self.tabla, stretch=4) # Ocupa el 80%
 
-        # --- Barra Inferior (Utilidades) ---
+        # 2. Panel Biométrico Lateral
+        self.panel_perfil = QWidget()
+        self.panel_perfil.setFixedWidth(220)
+        self.panel_perfil.setStyleSheet("background-color: #ffffff; border: 1px solid #dee2e6; border-radius: 5px;")
+        layout_perfil = QVBoxLayout(self.panel_perfil)
+        layout_perfil.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        lbl_titulo_perfil = QLabel("<b>Expediente</b>")
+        lbl_titulo_perfil.setStyleSheet("border: none; font-size: 14px; color: #495057;")
+        lbl_titulo_perfil.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.lbl_foto = QLabel("Sin Selección")
+        self.lbl_foto.setFixedSize(160, 160)
+        self.lbl_foto.setStyleSheet("background-color: #f8f9fa; border: 1px dashed #ced4da; border-radius: 4px; font-size: 12px; color: #adb5bd;")
+        self.lbl_foto.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.btn_abrir_expediente = QPushButton("📂 Abrir Expediente")
+        self.btn_abrir_expediente.setStyleSheet("background-color: #343a40; color: white; padding: 6px; font-size: 12px;")
+        self.btn_abrir_expediente.clicked.connect(self.abrir_carpeta_windows)
+        self.btn_abrir_expediente.setVisible(False) # Oculto por defecto
+
+        layout_perfil.addWidget(lbl_titulo_perfil)
+        layout_perfil.addWidget(self.lbl_foto, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout_perfil.addWidget(self.btn_abrir_expediente)
+        
+        self.layout_central.addWidget(self.panel_perfil, stretch=1) # Ocupa el 20%
+
+        self.main_layout.addLayout(self.layout_central)
+        # ==========================================
+
+        # --- Barra Inferior ---
         self.layout_inferior = QHBoxLayout()
         self.btn_exportar = QPushButton("Exportar Base a CSV")
         self.btn_exportar.setStyleSheet("background-color: #6c757d; color: white;")
         self.btn_exportar.clicked.connect(self.exportar_csv)
-        self.layout_inferior.addStretch() # Empuja el botón a la derecha
+        self.layout_inferior.addStretch()
         self.layout_inferior.addWidget(self.btn_exportar)
-
-        # Ensamblar Layout Principal
-        self.main_layout.addLayout(self.layout_botones)
-        self.main_layout.addWidget(self.tabla)
         self.main_layout.addLayout(self.layout_inferior)
 
     def aplicar_rbac(self):
-        """Restricción de interfaz según rol."""
-        if self.rol_id != 1: # Si no es ADMIN
+        if self.rol_id != 1:
             self.btn_exportar.setVisible(False)
-            self.btn_otorgar_credito.setEnabled(False) # Un cajero solo cobra, no presta
+            self.btn_otorgar_credito.setEnabled(False)
             self.setWindowTitle("Sistema de Créditos - Módulo de Operaciones")
 
     def cargar_datos(self):
-        """Refresca la información de la tabla desde la BD."""
         clientes = self.cliente_ctrl.obtener_todos()
         self.tabla.setRowCount(len(clientes))
         for i, cliente in enumerate(clientes):
             for j, dato in enumerate(cliente):
                 self.tabla.setItem(i, j, QTableWidgetItem(str(dato)))
 
+    def filtrar_tabla(self, texto):
+        texto = texto.lower()
+        for fila in range(self.tabla.rowCount()):
+            mostrar_fila = False
+            for columna in (0, 1):
+                item = self.tabla.item(fila, columna)
+                if item and texto in item.text().lower():
+                    mostrar_fila = True
+                    break
+            self.tabla.setRowHidden(fila, not mostrar_fila)
+
     def abrir_formulario_cliente(self):
         dialogo = ClienteForm(self)
         if dialogo.exec():
             d = dialogo.get_data()
-            
-            # Validación de UX: Obligar a poner RFC
             if not d['rfc'] or not d['nombre']:
                 QMessageBox.warning(self, "Error", "RFC y Nombre son obligatorios.")
                 return
 
-            # Inyectamos los nuevos campos de foto e ine al controlador
             exito = self.cliente_ctrl.guardar_cliente(
-                d['rfc'], 
-                d['nombre'], 
-                d['telefono'], 
-                d['direccion'], 
-                d['foto'], 
-                d['ine']
+                d['rfc'], d['nombre'], d['telefono'], d['direccion'], d['foto'], d['ine']
             )
-
             if exito:
                 QMessageBox.information(self, "Éxito", "Expediente de cliente registrado.")
                 self.cargar_datos()
@@ -150,12 +182,8 @@ class DashboardView(QMainWindow):
 
     def abrir_formulario_credito(self):
         fila = self.tabla.currentRow()
-        if fila == -1:
-            QMessageBox.warning(self, "Atención", "Seleccione un cliente primero.")
-            return
-        
-        rfc = self.tabla.item(fila, 0).text()
-        nombre = self.tabla.item(fila, 1).text()
+        if fila == -1: return QMessageBox.warning(self, "Atención", "Seleccione un cliente primero.")
+        rfc, nombre = self.tabla.item(fila, 0).text(), self.tabla.item(fila, 1).text()
         
         dialogo = CreditoForm(rfc, nombre, self)
         if dialogo.exec():
@@ -167,16 +195,11 @@ class DashboardView(QMainWindow):
 
     def gestionar_pagos(self):
         fila = self.tabla.currentRow()
-        if fila == -1:
-            QMessageBox.warning(self, "Atención", "Seleccione un cliente primero.")
-            return
-
+        if fila == -1: return QMessageBox.warning(self, "Atención", "Seleccione un cliente primero.")
         rfc = self.tabla.item(fila, 0).text()
         creditos_activos = self.pago_ctrl.obtener_creditos_cliente(rfc)
 
-        if not creditos_activos:
-            QMessageBox.information(self, "Sin Deuda", "El cliente no tiene saldos pendientes.")
-            return
+        if not creditos_activos: return QMessageBox.information(self, "Sin Deuda", "El cliente no tiene saldos pendientes.")
 
         id_credito, monto_orig, saldo, estado, fecha = creditos_activos[0]
         dialogo = PagoForm(id_credito, saldo, self)
@@ -187,15 +210,9 @@ class DashboardView(QMainWindow):
                 self.cargar_datos()
 
     def abrir_historial(self):
-        """Abre la ventana de historial detallado."""
         fila = self.tabla.currentRow()
-        if fila == -1:
-            QMessageBox.warning(self, "Atención", "Seleccione un cliente para ver su historial.")
-            return
-
-        rfc = self.tabla.item(fila, 0).text()
-        nombre = self.tabla.item(fila, 1).text()
-
+        if fila == -1: return QMessageBox.warning(self, "Atención", "Seleccione un cliente para ver su historial.")
+        rfc, nombre = self.tabla.item(fila, 0).text(), self.tabla.item(fila, 1).text()
         self.ventana_historial = HistorialView(rfc, nombre, self)
         self.ventana_historial.exec()
 
@@ -208,23 +225,52 @@ class DashboardView(QMainWindow):
                 headers = [self.tabla.horizontalHeaderItem(i).text() for i in range(self.tabla.columnCount())]
                 writer.writerow(headers)
                 for r in range(self.tabla.rowCount()):
-                    row_data = [self.tabla.item(r, c).text() for c in range(self.tabla.columnCount())]
-                    writer.writerow(row_data)
+                    writer.writerow([self.tabla.item(r, c).text() for c in range(self.tabla.columnCount())])
             QMessageBox.information(self, "Éxito", "Reporte generado.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Fallo al exportar: {e}")
 
-    def filtrar_tabla(self, texto):
-        """Filtra visualmente las filas del QTableWidget en tiempo real."""
-        texto = texto.lower()
-        for fila in range(self.tabla.rowCount()):
-            mostrar_fila = False
-            # Iterar solo por las columnas 0 (RFC) y 1 (Nombre)
-            for columna in (0, 1):
-                item = self.tabla.item(fila, columna)
-                if item and texto in item.text().lower():
-                    mostrar_fila = True
-                    break
-            
-            # Ocultar la fila si no hay coincidencia
-            self.tabla.setRowHidden(fila, not mostrar_fila)
+    # ==========================================
+    # LÓGICA DEL PANEL BIOMÉTRICO
+    # ==========================================
+    def actualizar_panel_perfil(self):
+        """Actualiza la foto y habilita el botón de expediente al seleccionar un cliente."""
+        fila = self.tabla.currentRow()
+        if fila == -1: return
+        
+        rfc = self.tabla.item(fila, 0).text()
+        expediente = self.cliente_ctrl.obtener_expediente(rfc)
+        
+        self.btn_abrir_expediente.setVisible(True) # Mostramos el botón
+        
+        # Resetear imagen
+        self.lbl_foto.clear()
+        self.lbl_foto.setText("Sin Foto")
+
+        if expediente:
+            foto_path = expediente[0]
+            if foto_path and os.path.exists(foto_path):
+                # Renderizar la imagen optimizada al tamaño del QLabel
+                pixmap = QPixmap(foto_path)
+                pixmap_escalado = pixmap.scaled(
+                    self.lbl_foto.size(), 
+                    Qt.AspectRatioMode.KeepAspectRatioByExpanding, 
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.lbl_foto.setPixmap(pixmap_escalado)
+
+    def abrir_carpeta_windows(self):
+        """Llama a la API nativa de Windows para abrir el explorador de archivos en la ruta del cliente."""
+        fila = self.tabla.currentRow()
+        if fila == -1: return
+        
+        rfc = self.tabla.item(fila, 0).text()
+        
+        # Construir la ruta absoluta usando el directorio actual
+        ruta_directorio = os.path.join(os.getcwd(), "media", "clientes", rfc)
+        
+        if os.path.exists(ruta_directorio):
+            # Ejecución nativa en Windows (puesto que usas MINGW64)
+            os.startfile(ruta_directorio)
+        else:
+            QMessageBox.warning(self, "Expediente Incompleto", f"Aún no hay documentos físicos para el cliente {rfc}.")
