@@ -53,3 +53,61 @@ class ClienteController:
             return None
         finally:
             conn.close()
+    
+    def eliminar_cliente(self, rfc):
+        """
+        Ejecuta el borrado del cliente.
+        Nota: Si tienes llaves foráneas (FOREIGN KEY) configuradas con ON DELETE CASCADE 
+        en las tablas 'creditos' y 'pagos', esto borrará todo su historial automáticamente.
+        """
+        conn = self.db.connect()
+        if not conn: return False
+        
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM clientes WHERE rfc = %s", (rfc,))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"\n[ERROR CRÍTICO AL ELIMINAR CLIENTE]: {e}\n")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+
+    def obtener_cliente_por_rfc(self, rfc):
+        """Extrae el registro completo para prellenar el formulario."""
+        conn = self.db.connect()
+        if not conn: return None
+        try:
+            cursor = conn.cursor()
+            # Corrección: nombre_completo
+            cursor.execute("SELECT rfc, nombre_completo, telefono FROM clientes WHERE rfc = %s", (rfc,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"\n[ERROR LECTURA CLIENTE]: {e}\n")
+            return None
+        finally:
+            conn.close()
+
+    def actualizar_cliente(self, rfc_original, datos_nuevos):
+        """Sobrescribe los datos en la base de datos."""
+        conn = self.db.connect()
+        if not conn: return False
+        try:
+            cursor = conn.cursor()
+            # Corrección: nombre_completo
+            query = """
+                UPDATE clientes 
+                SET rfc = %s, nombre_completo = %s, telefono = %s 
+                WHERE rfc = %s
+            """
+            cursor.execute(query, (datos_nuevos['rfc'], datos_nuevos['nombre'], datos_nuevos['telefono'], rfc_original))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"\n[ERROR SQL UPDATE]: {e}\n")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()

@@ -42,13 +42,26 @@ class DashboardView(QMainWindow):
         self.main_layout = QVBoxLayout(self.central_widget)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
-        self.layout_kpis = QHBoxLayout()
-        self.layout_kpis.setSpacing(20)
 
         # --- Encabezado ---
         self.lbl_titulo = QLabel("Panel de Control Operativo")
         self.lbl_titulo.setStyleSheet("font-size: 22px; font-weight: bold; color: #2c3e50; background: transparent;")
         self.main_layout.addWidget(self.lbl_titulo)
+
+        # --- PANEL ANALÍTICO (KPIs) MOVIDO ARRIBA ---
+        self.layout_kpis = QHBoxLayout()
+        self.layout_kpis.setSpacing(20)
+
+        # Crear Tarjetas (Card UI)
+        self.card_capital = self.crear_card_kpi("CAPITAL EN CALLE", "$ 0.00", "#0078D7")
+        self.card_ingresos = self.crear_card_kpi("INGRESOS HOY", "$ 0.00", "#28a745")
+        self.card_clientes = self.crear_card_kpi("CLIENTES ACTIVOS", "0", "#6f42c1")
+
+        self.layout_kpis.addWidget(self.card_capital)
+        self.layout_kpis.addWidget(self.card_ingresos)
+        self.layout_kpis.addWidget(self.card_clientes)
+
+        self.main_layout.addLayout(self.layout_kpis)
 
         # --- Barra Superior de Acciones ---
         self.layout_botones = QHBoxLayout()
@@ -90,15 +103,27 @@ class DashboardView(QMainWindow):
         # ==========================================
         self.layout_central = QHBoxLayout()
         
-        # 1. Tabla Principal
+        # 1. Tabla Principal (UX Optimizada - Anti-Excel)
         self.tabla = QTableWidget()
         self.tabla.setAlternatingRowColors(True)
         self.tabla.setColumnCount(4)
         self.tabla.setHorizontalHeaderLabels(["RFC", "Nombre Completo", "Teléfono", "Fecha Registro"])
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.tabla.horizontalHeader().setStyleSheet("font-weight: bold; background-color: #343a40; color: white;")
+        
+        # Mejoras visuales e interacción de fila completa
+        self.tabla.verticalHeader().setVisible(False)
         self.tabla.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabla.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.tabla.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.tabla.setStyleSheet("""
+            QTableWidget::item:selected {
+                background-color: #0078D7;
+                color: white;
+            }
+        """)
+
         # Señal reactiva: Al hacer clic en un cliente, actualizar panel derecho
         self.tabla.itemSelectionChanged.connect(self.actualizar_panel_perfil)
         
@@ -125,9 +150,22 @@ class DashboardView(QMainWindow):
         self.btn_abrir_expediente.clicked.connect(self.abrir_carpeta_windows)
         self.btn_abrir_expediente.setVisible(False) # Oculto por defecto
 
+        # --- NUEVOS BOTONES DE GESTIÓN ---
+        self.btn_editar_cliente = QPushButton("✏️ Editar Cliente")
+        self.btn_editar_cliente.setStyleSheet("background-color: #ffc107; color: #212529; padding: 6px; font-size: 12px; font-weight: bold;")
+        self.btn_editar_cliente.setVisible(False)
+        
+        self.btn_eliminar_cliente = QPushButton("🗑️ Eliminar / Baja")
+        self.btn_eliminar_cliente.setStyleSheet("background-color: #dc3545; color: white; padding: 6px; font-size: 12px; font-weight: bold;")
+        self.btn_eliminar_cliente.setVisible(False)
+        self.btn_editar_cliente.clicked.connect(self.abrir_edicion_cliente)
+        self.btn_eliminar_cliente.clicked.connect(self.eliminar_cliente_con_candado)
+
         layout_perfil.addWidget(lbl_titulo_perfil)
         layout_perfil.addWidget(self.lbl_foto, alignment=Qt.AlignmentFlag.AlignCenter)
         layout_perfil.addWidget(self.btn_abrir_expediente)
+        layout_perfil.addWidget(self.btn_editar_cliente)   # Inyectado
+        layout_perfil.addWidget(self.btn_eliminar_cliente) # Inyectado
         
         self.layout_central.addWidget(self.panel_perfil, stretch=1) # Ocupa el 20%
 
@@ -142,17 +180,6 @@ class DashboardView(QMainWindow):
         self.layout_inferior.addStretch()
         self.layout_inferior.addWidget(self.btn_exportar)
         self.main_layout.addLayout(self.layout_inferior)
-
-        # Crear Tarjetas (Card UI)
-        self.card_capital = self.crear_card_kpi("CAPITAL EN CALLE", "$ 0.00", "#0078D7")
-        self.card_ingresos = self.crear_card_kpi("INGRESOS HOY", "$ 0.00", "#28a745")
-        self.card_clientes = self.crear_card_kpi("CLIENTES ACTIVOS", "0", "#6f42c1")
-
-        self.layout_kpis.addWidget(self.card_capital)
-        self.layout_kpis.addWidget(self.card_ingresos)
-        self.layout_kpis.addWidget(self.card_clientes)
-
-        self.main_layout.addLayout(self.layout_kpis)
 
     def aplicar_rbac(self):
         if self.rol_id != 1:
@@ -287,14 +314,17 @@ class DashboardView(QMainWindow):
     # LÓGICA DEL PANEL BIOMÉTRICO
     # ==========================================
     def actualizar_panel_perfil(self):
-        """Actualiza la foto y habilita el botón de expediente al seleccionar un cliente."""
+        """Actualiza la foto y habilita los botones de gestión al seleccionar un cliente."""
         fila = self.tabla.currentRow()
         if fila == -1: return
         
         rfc = self.tabla.item(fila, 0).text()
         expediente = self.cliente_ctrl.obtener_expediente(rfc)
         
-        self.btn_abrir_expediente.setVisible(True) # Mostramos el botón
+        # Mostrar botones de gestión en el panel derecho
+        self.btn_abrir_expediente.setVisible(True)
+        self.btn_editar_cliente.setVisible(True)
+        self.btn_eliminar_cliente.setVisible(True)
         
         # Resetear imagen
         self.lbl_foto.clear()
@@ -304,6 +334,9 @@ class DashboardView(QMainWindow):
             foto_path = expediente[0]
             if foto_path and os.path.exists(foto_path):
                 # Renderizar la imagen optimizada al tamaño del QLabel
+                from PyQt6.QtGui import QPixmap # Asegurar importación si no está global
+                from PyQt6.QtCore import Qt
+                
                 pixmap = QPixmap(foto_path)
                 pixmap_escalado = pixmap.scaled(
                     self.lbl_foto.size(), 
@@ -360,3 +393,102 @@ class DashboardView(QMainWindow):
         self.card_capital.lbl_valor.setText(f"$ {capital:,.2f}")
         self.card_ingresos.lbl_valor.setText(f"$ {ingresos:,.2f}")
         self.card_clientes.lbl_valor.setText(str(clientes))
+
+    def abrir_edicion_cliente(self):
+        """Orquesta la extracción, edición, actualización SQL y renombrado de carpetas."""
+        import os # Asegura la importación para manejar directorios
+        from PyQt6.QtWidgets import QMessageBox
+        from app.views.cliente_form import ClienteForm
+
+        fila = self.tabla.currentRow()
+        if fila == -1: return
+
+        rfc_actual = self.tabla.item(fila, 0).text()
+        datos_completos = self.cliente_ctrl.obtener_cliente_por_rfc(rfc_actual)
+        
+        if not datos_completos:
+            QMessageBox.critical(self, "Error", "No se pudo leer el registro del cliente.")
+            return
+
+        formulario = ClienteForm(self)
+        formulario.cargar_datos_edicion(datos_completos)
+
+        if formulario.exec():
+            nuevos_datos = formulario.get_data()
+            nuevo_rfc = nuevos_datos['rfc']
+            
+            if not nuevo_rfc or not nuevos_datos['nombre']:
+                QMessageBox.warning(self, "Operación Abortada", "El RFC y Nombre son obligatorios.")
+                return
+
+            exito = self.cliente_ctrl.actualizar_cliente(rfc_actual, nuevos_datos)
+            
+            if exito:
+                # ==========================================
+                # SINCRONIZACIÓN DE GESTOR DOCUMENTAL (OS)
+                # ==========================================
+                if rfc_actual != nuevo_rfc:
+                    ruta_base = os.path.abspath("expedientes")
+                    ruta_vieja = os.path.join(ruta_base, rfc_actual)
+                    ruta_nueva = os.path.join(ruta_base, nuevo_rfc)
+                    
+                    if os.path.exists(ruta_vieja):
+                        try:
+                            os.rename(ruta_vieja, ruta_nueva)
+                            # Nota: Los paths dentro de la BD (foto_path, etc.) seguirán apuntando al viejo.
+                            # Para un MVP es aceptable si reconstruyes la ruta dinámicamente en tus lecturas,
+                            # o requieres actualizar los paths en SQL (Siguiente Sprint de optimización).
+                        except Exception as e:
+                            print(f"[ERROR OS] No se pudo renombrar carpeta: {e}")
+                # ==========================================
+
+                QMessageBox.information(self, "Éxito", "Expediente actualizado correctamente.")
+                self.cargar_datos()
+                
+                # Deseleccionamos para forzar un click limpio y recargar foto
+                self.tabla.clearSelection()
+                self.lbl_foto.clear()
+                self.lbl_foto.setText("Sin Selección")
+                self.btn_abrir_expediente.setVisible(False)
+                self.btn_editar_cliente.setVisible(False)
+                self.btn_eliminar_cliente.setVisible(False)
+            else:
+                QMessageBox.critical(self, "Error de BD", "No se pudo actualizar el registro.")
+
+    def eliminar_cliente_con_candado(self):
+        """Aplica un candado de seguridad antes de ejecutar el borrado en la BD."""
+        from PyQt6.QtWidgets import QInputDialog, QMessageBox # Importación local por seguridad
+        
+        fila = self.tabla.currentRow()
+        if fila == -1: return
+
+        rfc = self.tabla.item(fila, 0).text()
+        nombre = self.tabla.item(fila, 1).text()
+
+        # 1. Candado de Seguridad (QInputDialog)
+        texto, ok = QInputDialog.getText(
+            self,
+            "CANDADO DE SEGURIDAD",
+            f"Está a punto de eliminar a:\n{nombre}\n\n"
+            f"Esto borrará su expediente y todo su historial financiero.\n"
+            f"Para confirmar, escriba la palabra ELIMINAR en mayúsculas:"
+        )
+
+        # 2. Validación estricta
+        if ok and texto == "ELIMINAR":
+            exito = self.cliente_ctrl.eliminar_cliente(rfc)
+            if exito:
+                QMessageBox.information(self, "Operación Exitosa", f"El cliente {nombre} ha sido eliminado del sistema.")
+                self.cargar_datos() # Refresca la tabla y KPIs
+                
+                # Ocultar botones y resetear panel porque el cliente ya no existe
+                self.btn_abrir_expediente.setVisible(False)
+                self.btn_editar_cliente.setVisible(False)
+                self.btn_eliminar_cliente.setVisible(False)
+                self.lbl_foto.clear()
+                self.lbl_foto.setText("Sin Selección")
+            else:
+                QMessageBox.critical(self, "Error de Integridad", "No se pudo eliminar al cliente. Es posible que tenga créditos activos que impiden el borrado.")
+        
+        elif ok and texto != "ELIMINAR":
+            QMessageBox.warning(self, "Operación Cancelada", "Palabra de seguridad incorrecta. No se realizaron cambios.")
