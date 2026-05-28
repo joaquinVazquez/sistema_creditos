@@ -67,7 +67,7 @@
  [],
  False,
  False,
- 1778541921,
+ 1778889772,
  [('runw.exe',
    'C:\\Users\\joaqu\\OneDrive\\Documentos\\projects\\creditos_app\\venv\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe',
    'EXECUTABLE')],
