@@ -25,6 +25,10 @@ class ClienteController:
     
     def guardar_cliente(self, rfc, nombre, telefono, direccion, foto_path=None, ine_path=None):
         conn = self.db.connect()
+        if not conn:
+            print("[ERROR] No hay conexión a la base de datos.")
+            return False
+            
         try:
             cursor = conn.cursor()
             query = """
@@ -35,10 +39,13 @@ class ClienteController:
             conn.commit()
             return True
         except Exception as e:
-            print(f"Error: {e}")
+            # Este print es el que nos dirá la verdad absoluta del fallo
+            print(f"\n[ERROR CRÍTICO AL GUARDAR CLIENTE]: {e}\n")
+            conn.rollback()
             return False
         finally:
-            conn.close()
+            if conn:
+                conn.close()
 
     def obtener_expediente(self, rfc):
         """Obtiene las rutas físicas de los documentos asociados a un cliente."""

@@ -210,21 +210,36 @@ class DashboardView(QMainWindow):
             self.tabla.setRowHidden(fila, not mostrar_fila)
 
     def abrir_formulario_cliente(self):
+        """Abre el formulario vacío, recolecta datos y los envía al controlador."""
         dialogo = ClienteForm(self)
+        
         if dialogo.exec():
             d = dialogo.get_data()
-            if not d['rfc'] or not d['nombre']:
-                QMessageBox.warning(self, "Error", "RFC y Nombre son obligatorios.")
+            
+            # Validación de integridad de negocio
+            if not d.get('rfc') or not d.get('nombre'):
+                QMessageBox.warning(self, "Operación Abortada", "El RFC y Nombre Completo son obligatorios.")
                 return
 
+            # Inyección robusta al controlador mediante parámetros nombrados (Kwargs)
             exito = self.cliente_ctrl.guardar_cliente(
-                d['rfc'], d['nombre'], d['telefono'], d['direccion'], d['foto'], d['ine']
+                rfc=d['rfc'],
+                nombre=d['nombre'],
+                telefono=d['telefono'],
+                direccion=d['direccion'],
+                foto_path=d['foto'],
+                ine_path=d['ine']
             )
+            
             if exito:
-                QMessageBox.information(self, "Éxito", "Expediente de cliente registrado.")
-                self.cargar_datos()
+                QMessageBox.information(self, "Éxito", "Expediente de cliente registrado correctamente.")
+                self.cargar_datos() # Recarga la tabla y los KPIs automáticamente
             else:
-                QMessageBox.critical(self, "Error", "No se pudo registrar el expediente.")
+                QMessageBox.critical(
+                    self, 
+                    "Error de Inserción", 
+                    "No se pudo guardar el cliente en la base de datos.\nRevisa la terminal para ver el log de error exacto."
+                )
 
     def abrir_formulario_credito(self):
         fila = self.tabla.currentRow()
