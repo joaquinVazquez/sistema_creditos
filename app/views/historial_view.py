@@ -121,7 +121,12 @@ class HistorialView(QDialog):
         for fila_idx, abono in enumerate(abonos):
             for col_idx, dato in enumerate(abono):
                 if col_idx == 2: # Monto Pagado
-                    valor_str = f"$ {float(dato):,.2f}"
+                    # Sanitización de datos para evitar colapsos por valores nulos (NULL)
+                    try:
+                        monto_seguro = float(dato) if dato is not None else 0.0
+                        valor_str = f"$ {monto_seguro:,.2f}"
+                    except (ValueError, TypeError):
+                        valor_str = "$ 0.00"
                     item = QTableWidgetItem(valor_str)
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 elif col_idx == 1: # Formatear la fecha para que no se vea tan técnica

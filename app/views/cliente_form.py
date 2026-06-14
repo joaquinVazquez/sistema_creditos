@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QLineEdit, QTextEdit, QPushButton, QFileDialog, QLabel
+import os
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QFileDialog, QLabel
 from app.utils.file_handler import guardar_archivo_cliente
 
 class ClienteForm(QDialog):
@@ -21,9 +22,12 @@ class ClienteForm(QDialog):
         self.txt_rfc = QLineEdit()
         self.txt_nombre = QLineEdit()
         
-        # INYECTADO: Campo de teléfono
         self.txt_telefono = QLineEdit()
         self.txt_telefono.setPlaceholderText("Ej. 9671234567")
+
+        # CORRECCIÓN: Creación del input físico para Dirección
+        self.txt_direccion = QLineEdit()
+        self.txt_direccion.setPlaceholderText("Ej. Av. Central 123, Centro")
 
         # Botones para seleccionar archivos
         self.btn_foto = QPushButton("Seleccionar Foto")
@@ -35,7 +39,8 @@ class ClienteForm(QDialog):
         # 2. Ensamblado del layout
         form.addRow("RFC:", self.txt_rfc)
         form.addRow("Nombre Completo:", self.txt_nombre)
-        form.addRow("Teléfono:", self.txt_telefono) # Agregado a la interfaz
+        form.addRow("Teléfono:", self.txt_telefono)
+        form.addRow("Dirección:", self.txt_direccion) # Inyectado a la vista
         form.addRow("Fotografía:", self.btn_foto)
         form.addRow("Identificación (INE):", self.btn_ine)
 
@@ -47,34 +52,50 @@ class ClienteForm(QDialog):
         layout.addLayout(form)
         layout.addWidget(self.btn_guardar)
 
+        # ==========================================
+        # UX OPTIMIZATION: Tab Order & Hotkeys
+        # ==========================================
+        self.txt_rfc.setFocus()
+        
+        self.btn_guardar.setDefault(True)
+        self.btn_guardar.setAutoDefault(True)
+
+        # La ruta estricta ahora encuentra todos los objetos
+        self.setTabOrder(self.txt_rfc, self.txt_nombre)
+        self.setTabOrder(self.txt_nombre, self.txt_telefono)
+        self.setTabOrder(self.txt_telefono, self.txt_direccion)
+        self.setTabOrder(self.txt_direccion, self.btn_guardar)
+
     def seleccionar_archivo(self, tipo):
         file_path, _ = QFileDialog.getOpenFileName(self, f"Seleccionar {tipo}")
         if file_path:
             self.paths[tipo] = file_path
-            # Feedback visual simple en el botón
             sender = self.sender()
             sender.setText("✅ Archivo Cargado")
 
     def get_data(self):
         rfc = self.txt_rfc.text().strip().upper()
-        # Procesar archivos físicamente antes de retornar los datos
         return {
             "rfc": rfc,
             "nombre": self.txt_nombre.text().strip(),
             "foto": guardar_archivo_cliente(rfc, self.paths["foto"], "foto"),
             "ine": guardar_archivo_cliente(rfc, self.paths["ine"], "ine"),
-            "telefono": self.txt_telefono.text().strip(), # 3. Extrae el valor dinámico tecleado
-            "direccion": "" # Se mantiene para integridad de la base de datos al crear nuevos clientes
+            "telefono": self.txt_telefono.text().strip(),
+            # CORRECCIÓN: Extrae el valor dinámico tecleado en lugar de ""
+            "direccion": self.txt_direccion.text().strip() 
         }
     
     def cargar_datos_edicion(self, datos):
         """Pre-llena el formulario y cambia la semántica visual para edición."""
-        # datos = (rfc, nombre_completo, telefono)
-        self.txt_rfc.setText(datos[0])
-        self.txt_nombre.setText(datos[1])
+        # Se asume que el controlador envía la tupla completa del cliente
+        self.txt_rfc.setText(str(datos[0]) if datos[0] else "")
+        self.txt_nombre.setText(str(datos[1]) if datos[1] else "")
         self.txt_telefono.setText(str(datos[2]) if datos[2] else "")
         
-        # Ajuste visual de la ventana
+        # Validación de longitud por si la base de datos devuelve menos índices
+        if len(datos) > 3:
+            self.txt_direccion.setText(str(datos[3]) if datos[3] else "")
+        
         self.setWindowTitle("Editar Expediente del Cliente")
         self.btn_guardar.setText("Actualizar Datos")
         self.btn_guardar.setStyleSheet("background-color: #ffc107; color: #212529; font-weight: bold; padding: 10px; border-radius: 5px;")

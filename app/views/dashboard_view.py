@@ -262,6 +262,8 @@ class DashboardView(QMainWindow):
                 QMessageBox.critical(self, "Error", "No se pudo procesar el crédito.")
 
     def gestionar_pagos(self):
+        from PyQt6.QtWidgets import QMessageBox
+        
         fila = self.tabla.currentRow()
         if fila == -1: return QMessageBox.warning(self, "Atención", "Seleccione un cliente primero.")
         
@@ -273,30 +275,40 @@ class DashboardView(QMainWindow):
             return QMessageBox.information(self, "Sin Deuda", "El cliente no tiene saldos pendientes.")
 
         id_credito, monto_orig, saldo_actual, estado, fecha = creditos_activos[0]
-        
-        # PARCHE DE TIPADO: Convertir Decimal de SQL a float de Python
         saldo_actual = float(saldo_actual)
         
-        dialogo = PagoForm(id_credito, saldo_actual, nombre_cliente, self)
+        # Extracción métricas financieras
+        cuota_sugerida, semana_actual = self.pago_ctrl.obtener_metricas_cobro(id_credito)
+
+        # PARCHE ARQUITECTÓNICO: Parámetros nombrados (Kwargs)
+        from app.views.pago_form import PagoForm
+        dialogo = PagoForm(
+            id_credito=id_credito, 
+            saldo_actual=saldo_actual, 
+            nombre_cliente=nombre_cliente, 
+            cuota_semanal=cuota_sugerida, 
+            semana_actual=semana_actual, 
+            parent=self
+        )
+        
         if dialogo.exec():
-            monto_abono = float(dialogo.get_monto()) # Garantizar que sea float
+            monto_abono = float(dialogo.get_monto())
             
-            # PARCHE QA: Validar montos lógicos antes de tocar BD
             if monto_abono <= 0 or monto_abono > saldo_actual:
                 QMessageBox.warning(self, "Error Operativo", "Monto inválido. No puede ser 0 ni mayor al saldo restante.")
                 return
 
             if self.pago_ctrl.registrar_pago(id_credito, self.usuario_id, monto_abono):
-                # Calcular el nuevo saldo (ahora ambos son float)
                 nuevo_saldo = saldo_actual - monto_abono
                 
-                # Generar el PDF
+                # Generación de Ticket
+                from app.utils.ticket_generator import generar_ticket_pago
                 ruta_ticket = generar_ticket_pago(rfc, nombre_cliente, monto_abono, nuevo_saldo)
                 
                 QMessageBox.information(self, "Éxito", "Abono procesado. Generando comprobante...")
-                self.cargar_datos() # Refrescar la tabla
+                self.cargar_datos()
                 
-                # Abrir el PDF automáticamente
+                import os
                 try:
                     os.startfile(os.path.abspath(ruta_ticket))
                 except Exception as e:

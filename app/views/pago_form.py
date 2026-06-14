@@ -1,94 +1,71 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QDoubleSpinBox, QPushButton, QLabel
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QLabel
+from PyQt6.QtCore import Qt
 
 class PagoForm(QDialog):
-    def __init__(self, id_credito, saldo_actual, nombre_cliente, parent=None):
+    def __init__(self, id_credito, saldo_actual, nombre_cliente, cuota_semanal=0.0, semana_actual=1, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Registrar Abono")
-        self.setFixedWidth(450) # Hacemos la ventana más ancha para las fuentes grandes
+        self.setWindowTitle("Terminal de Cobro")
+        self.setFixedWidth(400)
         
+        # Estado local
         self.id_credito = id_credito
         self.saldo_actual = float(saldo_actual)
         self.nombre_cliente = nombre_cliente
+        self.cuota_semanal = float(cuota_semanal)
+        self.semana_actual = int(semana_actual)
         
         self.setup_ui()
-        
-        # UX ZERO-CLICK: Dispara el foco automáticamente tras renderizar la ventana
-        QTimer.singleShot(0, self.preparar_input)
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
+        form = QFormLayout()
 
-        # 1. Cabecera de Información (Fuente más grande y clara)
-        lbl_info = QLabel(f"<div style='font-size: 16px;'>"
-                          f"<b style='color:#0078D7;'>Cliente:</b> {self.nombre_cliente}<br>"
-                          f"<b style='color:#d9534f;'>Deuda Total:</b> $ {self.saldo_actual:,.2f}"
-                          f"</div>")
-        lbl_info.setStyleSheet("background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;")
-        layout.addWidget(lbl_info)
-
-        lbl_instruccion = QLabel("<b>Ingrese la cantidad a cobrar:</b>")
-        lbl_instruccion.setStyleSheet("font-size: 14px; margin-top: 10px;")
-        layout.addWidget(lbl_instruccion)
-
-        # 2. Layout del Input y Botón de Liquidar
-        layout_input = QHBoxLayout()
-
-        # INPUT ESTILO PUNTO DE VENTA
-        self.spn_monto = QDoubleSpinBox()
-        self.spn_monto.setMaximum(self.saldo_actual) 
-        self.spn_monto.setMinimum(0.00) 
-        self.spn_monto.setValue(0.00)   
-        self.spn_monto.setPrefix("$ ")
-        self.spn_monto.setDecimals(2)
+        # --- PANEL INFORMATIVO ---
+        lbl_header = QLabel(f"Cobro a: {self.nombre_cliente}")
+        lbl_header.setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;")
         
-        # UX: Ocultar flechitas inútiles y alinear números a la derecha
-        self.spn_monto.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
-        self.spn_monto.setAlignment(Qt.AlignmentFlag.AlignRight)
+        lbl_saldo = QLabel(f"Saldo Pendiente: ${self.saldo_actual:,.2f}")
+        lbl_saldo.setStyleSheet("font-size: 14px; font-weight: bold; color: #dc3545;")
         
-        # UX: Fuente Gigante e Indicadores Visuales (Verde para dinero)
-        self.spn_monto.setStyleSheet("""
-            QDoubleSpinBox {
-                font-size: 28px; 
-                font-weight: bold; 
-                padding: 10px; 
-                color: #28a745; 
-                border: 2px solid #28a745;
-                border-radius: 8px;
-                background-color: #ffffff;
-            }
-            QDoubleSpinBox:focus {
-                border: 2px solid #0078D7;
-                background-color: #f0f8ff;
-            }
-        """)
+        lbl_semana = QLabel(f"Semana a Pagar: #{self.semana_actual}")
+        lbl_semana.setStyleSheet("font-size: 14px; color: #0078D7; font-weight: bold;")
+        
+        lbl_cuota = QLabel(f"Cuota Sugerida: ${self.cuota_semanal:,.2f}")
+        lbl_cuota.setStyleSheet("font-size: 14px; color: #28a745; font-weight: bold; margin-bottom: 10px;")
 
-        # BOTÓN LIQUIDAR
-        self.btn_liquidar = QPushButton("Liquidar\nDeuda")
-        self.btn_liquidar.setFixedSize(100, 60) # Altura fija para alinearse con el input gigante
-        self.btn_liquidar.setStyleSheet("background-color: #17a2b8; color: white; font-weight: bold; font-size: 14px; border-radius: 8px;")
-        self.btn_liquidar.clicked.connect(self.autollenar_saldo)
+        layout.addWidget(lbl_header)
+        layout.addWidget(lbl_saldo)
+        layout.addWidget(lbl_semana)
+        layout.addWidget(lbl_cuota)
 
-        layout_input.addWidget(self.spn_monto)
-        layout_input.addWidget(self.btn_liquidar)
-        layout.addLayout(layout_input)
+        # --- INPUT ESTANDARIZADO ---
+        self.txt_monto = QLineEdit()
+        # Autocompletar con la cuota sugerida para acelerar el cobro
+        self.txt_monto.setText(f"{self.cuota_semanal:.2f}" if self.cuota_semanal > 0 else "")
+        self.txt_monto.setPlaceholderText("0.00")
+        self.txt_monto.setStyleSheet("font-size: 20px; padding: 5px; font-weight: bold;")
 
-        # 3. Botón de Procesar Pago
-        self.btn_guardar = QPushButton("Procesar Pago e Imprimir Recibo")
-        self.btn_guardar.setStyleSheet("background-color: #343a40; color: white; font-weight: bold; font-size: 16px; padding: 15px; margin-top: 15px; border-radius: 8px;")
+        form.addRow("Monto a Recibir ($):", self.txt_monto)
+
+        self.btn_guardar = QPushButton("Procesar Pago")
+        self.btn_guardar.setStyleSheet("background-color: #28a745; color: white; padding: 12px; font-weight: bold; font-size: 14px; border-radius: 5px;")
         self.btn_guardar.clicked.connect(self.accept)
 
+        layout.addLayout(form)
         layout.addWidget(self.btn_guardar)
 
-    def preparar_input(self):
-        """UX Poka-Yoke: Coloca el cursor y selecciona los ceros inmediatamente."""
-        self.spn_monto.setFocus()
-        self.spn_monto.selectAll()
-
-    def autollenar_saldo(self):
-        """Copia el saldo total y devuelve el foco al input por si el cajero quiere corregir."""
-        self.spn_monto.setValue(self.saldo_actual)
-        self.spn_monto.setFocus()
+        # ==========================================
+        # UX OPTIMIZATION: Tab Order & Hotkeys
+        # ==========================================
+        self.txt_monto.setFocus()
+        self.txt_monto.selectAll() # Selecciona el texto por defecto para sobreescribirlo rápido si es un abono parcial
+        
+        self.btn_guardar.setDefault(True)
+        self.btn_guardar.setAutoDefault(True)
 
     def get_monto(self):
-        return self.spn_monto.value()
+        monto_str = self.txt_monto.text().strip().replace(',', '')
+        try:
+            return float(monto_str)
+        except ValueError:
+            return 0.0
