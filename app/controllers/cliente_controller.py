@@ -1,120 +1,118 @@
 # app/controllers/cliente_controller.py
-from app.database import DatabaseConnection
+from app.models.database import SessionLocal
+from app.models.clientes import Cliente
 
 class ClienteController:
     def __init__(self):
-        self.db = DatabaseConnection()
+        # Se elimina la dependencia de la conexión SQL cruda. La sesión se gestiona por método.
+        pass
 
     def obtener_todos(self):
-        """Retorna una lista de tuplas con los clientes activos."""
-        conn = self.db.connect()
-        if not conn:
-            return []
-        
+        """Retorna una lista de tuplas con los clientes activos (ORM)."""
+        db = SessionLocal()
         try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT rfc, nombre_completo, telefono, fecha_registro FROM clientes ORDER BY id DESC")
-            resultados = cursor.fetchall()
-            return resultados
+            # Filtro exclusivo de clientes activos (Soft Delete aplicado)
+            clientes = db.query(Cliente).filter(Cliente.is_active == True).order_by(Cliente.id.desc()).all()
+            
+            # Compatibilidad inversa con PyQt6: devolvemos tuplas. 
+            # Mapeamos 'created_at' en reemplazo del antiguo 'fecha_registro'
+            return [(c.rfc, c.nombre_completo, c.telefono, c.created_at) for c in clientes]
         except Exception as e:
-            print(f"[ERROR SQL] {e}")
+            print(f"[ERROR ORM LECTURA]: {e}")
             return []
         finally:
-            conn.close()
+            db.close()
 
-    
-    def guardar_cliente(self, rfc, nombre, telefono, direccion, foto_path=None, ine_path=None):
-        conn = self.db.connect()
-        if not conn:
-            print("[ERROR] No hay conexión a la base de datos.")
-            return False
-            
+    def guardar_cliente(self, rfc, nombre, telefono, direccion=None, foto_path=None, ine_path=None):
+        """Inserta un nuevo cliente incluyendo rutas de expediente físico."""
+        db = SessionLocal()
         try:
-            cursor = conn.cursor()
-            query = """
-                INSERT INTO clientes (rfc, nombre_completo, telefono, direccion, foto_path, ine_path)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(query, (rfc, nombre, telefono, direccion, foto_path, ine_path))
-            conn.commit()
+            nuevo_cliente = Cliente(
+                rfc=rfc, 
+                nombre_completo=nombre, 
+                telefono=telefono,
+                direccion=direccion,
+                foto_path=foto_path,
+                ine_path=ine_path
+            )
+            db.add(nuevo_cliente)
+            db.commit()
             return True
         except Exception as e:
-            # Este print es el que nos dirá la verdad absoluta del fallo
+            db.rollback()
             print(f"\n[ERROR CRÍTICO AL GUARDAR CLIENTE]: {e}\n")
-            conn.rollback()
             return False
         finally:
-            if conn:
-                conn.close()
+            db.close()
 
     def obtener_expediente(self, rfc):
         """Obtiene las rutas físicas de los documentos asociados a un cliente."""
-        conn = self.db.connect()
-        if not conn: return None
+        db = SessionLocal()
         try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT foto_path, ine_path FROM clientes WHERE rfc = %s", (rfc,))
-            return cursor.fetchone()
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc, Cliente.is_active == True).first()
+            if cliente:
+                # getattr() previene colapsos si las columnas aún no existen en el modelo de SQLAlchemy
+                return (getattr(cliente, 'foto_path', None), getattr(cliente, 'ine_path', None))
+            return None
         except Exception as e:
-            print(f"[ERROR SQL] No se pudo obtener el expediente: {e}")
+            print(f"[ERROR ORM LECTURA EXPEDIENTE]: {e}")
             return None
         finally:
-            conn.close()
+            db.close()
     
     def eliminar_cliente(self, rfc):
         """
-        Ejecuta el borrado del cliente.
-        Nota: Si tienes llaves foráneas (FOREIGN KEY) configuradas con ON DELETE CASCADE 
-        en las tablas 'creditos' y 'pagos', esto borrará todo su historial automáticamente.
+        Transición a Baja Lógica (Soft Delete).
+        En lugar de destruir el registro (DELETE) y violar la integridad referencial, 
+        se apaga la bandera is_active para auditoría.
         """
-        conn = self.db.connect()
-        if not conn: return False
-        
+        db = SessionLocal()
         try:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM clientes WHERE rfc = %s", (rfc,))
-            conn.commit()
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc).first()
+            if not cliente: 
+                return False
+            
+            cliente.is_active = False
+            db.commit()
             return True
         except Exception as e:
-            print(f"\n[ERROR CRÍTICO AL ELIMINAR CLIENTE]: {e}\n")
-            conn.rollback()
+            db.rollback()
+            print(f"\n[ERROR CRÍTICO AL ELIMINAR CLIENTE (SOFT DELETE)]: {e}\n")
             return False
         finally:
-            conn.close()
+            db.close()
 
     def obtener_cliente_por_rfc(self, rfc):
         """Extrae el registro completo para prellenar el formulario."""
-        conn = self.db.connect()
-        if not conn: return None
+        db = SessionLocal()
         try:
-            cursor = conn.cursor()
-            # Corrección: nombre_completo
-            cursor.execute("SELECT rfc, nombre_completo, telefono FROM clientes WHERE rfc = %s", (rfc,))
-            return cursor.fetchone()
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc, Cliente.is_active == True).first()
+            if cliente:
+                return (cliente.rfc, cliente.nombre_completo, cliente.telefono)
+            return None
         except Exception as e:
-            print(f"\n[ERROR LECTURA CLIENTE]: {e}\n")
+            print(f"\n[ERROR ORM LECTURA CLIENTE]: {e}\n")
             return None
         finally:
-            conn.close()
+            db.close()
 
     def actualizar_cliente(self, rfc_original, datos_nuevos):
-        """Sobrescribe los datos en la base de datos."""
-        conn = self.db.connect()
-        if not conn: return False
+        """Sobrescribe los datos mediante la sesión transaccional."""
+        db = SessionLocal()
         try:
-            cursor = conn.cursor()
-            # Corrección: nombre_completo
-            query = """
-                UPDATE clientes 
-                SET rfc = %s, nombre_completo = %s, telefono = %s 
-                WHERE rfc = %s
-            """
-            cursor.execute(query, (datos_nuevos['rfc'], datos_nuevos['nombre'], datos_nuevos['telefono'], rfc_original))
-            conn.commit()
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc_original).first()
+            if not cliente: 
+                return False
+            
+            cliente.rfc = datos_nuevos.get('rfc', cliente.rfc)
+            cliente.nombre_completo = datos_nuevos.get('nombre', cliente.nombre_completo)
+            cliente.telefono = datos_nuevos.get('telefono', cliente.telefono)
+            
+            db.commit()
             return True
         except Exception as e:
-            print(f"\n[ERROR SQL UPDATE]: {e}\n")
-            conn.rollback()
+            db.rollback()
+            print(f"\n[ERROR ORM UPDATE]: {e}\n")
             return False
         finally:
-            conn.close()
+            db.close()

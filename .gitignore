@@ -19,6 +19,7 @@ __pycache__/
 .env
 .env.*
 *.pem
+.env.local
 
 # ==========================================
 # 4. GESTOR DOCUMENTAL (ARCHIVOS DEL USUARIO)
