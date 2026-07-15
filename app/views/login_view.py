@@ -1,15 +1,17 @@
 # app/views/login_view.py
-import bcrypt
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt6.QtCore import Qt
-from app.database import DatabaseConnection
+
+# Importamos el controlador ORM en lugar del gestor de base de datos obsoleto
+from app.controllers.usuario_controller import UsuarioController
 from app.views.dashboard_view import DashboardView
 
 class LoginWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Sistema de Créditos - Acceso")
-        self.setFixedSize(350, 250) # UX: Tamaño fijo para ventanas de login
+        self.setFixedSize(350, 250) # UX: Tamaño fijo
+        self.controller = UsuarioController() # Instanciación del controlador central
         self.setup_ui()
 
     def setup_ui(self):
@@ -50,7 +52,7 @@ class LoginWindow(QWidget):
         self.setLayout(layout)
 
     def validar_acceso(self):
-        """Regla de Negocio: Valida las credenciales contra PostgreSQL"""
+        """Delega la validación al controlador ORM y maneja la transición de vistas"""
         username = self.txt_usuario.text().strip()
         password = self.txt_password.text().strip()
 
@@ -58,32 +60,20 @@ class LoginWindow(QWidget):
             QMessageBox.warning(self, "Error de Validación", "Por favor ingrese usuario y contraseña.")
             return
 
-        db = DatabaseConnection()
-        conn = db.connect()
-        if not conn:
-            QMessageBox.critical(self, "Error de Red", "No se pudo conectar a la base de datos.")
-            return
-
         try:
-            cursor = conn.cursor()
-            # Modificamos la consulta para traer también el ID y el Rol
-            cursor.execute("SELECT id, rol_id, password_hash FROM usuarios WHERE username = %s AND activo = TRUE", (username,))
-            resultado = cursor.fetchone()
+            # 1. Petición al controlador (retorna un objeto Usuario de SQLAlchemy o None)
+            usuario_valido = self.controller.autenticar_usuario(username, password)
 
-            if resultado:
-                usuario_id, rol_id, hash_guardado = resultado
-                
-                if bcrypt.checkpw(password.encode('utf-8'), hash_guardado.encode('utf-8')):
-                    # Pasamos el usuario_id y rol_id al Dashboard
-                    self.dashboard = DashboardView(usuario_id, rol_id)
-                    self.dashboard.show()
-                    self.close()
-                else:
-                    QMessageBox.warning(self, "Acceso Denegado", "Contraseña incorrecta.")
+            # 2. Evaluación de estado
+            if usuario_valido:
+                # 3. Transición inyectando propiedades del objeto al Dashboard
+                # (Nota técnica: asegúrate de que tu modelo Usuario tenga el atributo 'rol_id',
+                # de lo contrario ajusta a 'usuario_valido.rol')
+                self.dashboard = DashboardView(usuario_valido.id, getattr(usuario_valido, 'rol_id', 1))
+                self.dashboard.show()
+                self.close()
             else:
-                QMessageBox.warning(self, "Acceso Denegado", "El usuario no existe o está inactivo.")
+                QMessageBox.warning(self, "Acceso Denegado", "El usuario no existe, está inactivo o la contraseña es incorrecta.")
 
         except Exception as e:
-            QMessageBox.critical(self, "Error de Sistema", f"Ocurrió un error: {e}")
-        finally:
-            conn.close()
+            QMessageBox.critical(self, "Error de Sistema", f"Fallo en la comunicación con el core de datos:\n{e}")
