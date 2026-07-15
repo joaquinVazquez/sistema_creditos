@@ -1,16 +1,19 @@
 # app/routers/dashboard_router.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.schemas.dashboard_schema import DashboardResponse
 from app.controllers.credito_controller import CreditoController
+
+# Importaciones de seguridad
+from app.core.dependencies import get_current_user
+from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 credito_ctrl = CreditoController()
 
 @router.get("/metricas", response_model=DashboardResponse)
-def obtener_kpis():
-    """Retorna los indicadores principales financieros del día."""
+def obtener_kpis(current_user: Usuario = Depends(get_current_user)):
+    """Retorna los indicadores principales financieros del día (Ruta Protegida)."""
     try:
-        # El controlador retorna una tupla: (capital, ingresos, clientes)
         kpis = credito_ctrl.obtener_metricas_dashboard()
         return {
             "capital_activo": kpis[0],

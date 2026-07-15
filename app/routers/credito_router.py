@@ -1,15 +1,19 @@
 # app/routers/credito_router.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from app.schemas.credito_schema import CreditoCreate, CreditoResponse
 from app.controllers.credito_controller import CreditoController
+
+# Importaciones de seguridad
+from app.core.dependencies import get_current_user
+from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/api/v1/creditos", tags=["Créditos"])
 controller = CreditoController()
 
 @router.post("/", status_code=201)
-def crear_credito(credito: CreditoCreate):
-    """Procesa un nuevo crédito atado al RFC del cliente."""
+def crear_credito(credito: CreditoCreate, current_user: Usuario = Depends(get_current_user)):
+    """Procesa un nuevo crédito atado al RFC del cliente (Ruta Protegida)."""
     exito = controller.crear_credito(
         rfc_cliente=credito.rfc_cliente,
         monto=credito.monto,
@@ -21,8 +25,8 @@ def crear_credito(credito: CreditoCreate):
     return {"mensaje": "Crédito generado exitosamente"}
 
 @router.get("/{rfc}", response_model=List[CreditoResponse])
-def historial_creditos(rfc: str):
-    """Retorna el historial completo de créditos de un cliente específico."""
+def historial_creditos(rfc: str, current_user: Usuario = Depends(get_current_user)):
+    """Retorna el historial completo de créditos de un cliente específico (Ruta Protegida)."""
     try:
         creditos_tuplas = controller.obtener_historial_por_rfc(rfc)
         resultado = []
