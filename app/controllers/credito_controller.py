@@ -119,3 +119,5 @@ class CreditoController:
             return (0.0, 0.0, 0)
         finally:
             db.close()
+
+    
