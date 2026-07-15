@@ -1,7 +1,7 @@
 # api.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import cliente_router, credito_router
+from app.routers import cliente_router, credito_router, pago_router, dashboard_router
 
 # Inicialización de la aplicación
 app = FastAPI(
@@ -22,6 +22,8 @@ app.add_middleware(
 # Integración de Módulos (Routers)
 app.include_router(cliente_router.router)
 app.include_router(credito_router.router)
+app.include_router(pago_router.router)
+app.include_router(dashboard_router.router)
 
 @app.get("/")
 def health_check():
