@@ -14,7 +14,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     db = SessionLocal()
     try:
         # 1. Buscar al usuario activo en la base de datos
-        usuario = db.query(Usuario).filter(Usuario.username == form_data.username, Usuario.is_active == True).first()
+        usuario = db.query(Usuario).filter(Usuario.username == form_data.username, Usuario.activo == True).first()
         
         # 2. Validación de credenciales
         # NOTA DE MIGRACIÓN: Si en la v1.0 las contraseñas están en texto plano, 
