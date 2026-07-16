@@ -7,7 +7,7 @@ db = SessionLocal()
 try:
     nuevo_admin = Usuario(
         username="admin",
-        password_hash=obtener_password_hash("tu_contraseña_segura"),
+        password_hash=obtener_password_hash("finami"),
         rol_id=1,
         activo=True
     )

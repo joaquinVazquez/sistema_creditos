@@ -20,7 +20,7 @@ ENV_PATH = BASE_DIR / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
 # Leemos la variable (apuntará a Supabase si descomentaste la línea correcta)
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+SQLALCHEMY_DATABASE_URL = os.getenv("postgresql://postgres.nwzozssfnwcslmbhojax:finamicreditos@aws-1-us-west-2.pooler.supabase.com:6543/postgres")
 
 # ==========================================
 # 3. BLINDAJE Y VALIDACIÓN
