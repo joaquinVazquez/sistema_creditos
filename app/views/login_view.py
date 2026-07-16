@@ -1,17 +1,19 @@
 # app/views/login_view.py
+import requests
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt6.QtCore import Qt
 
-# Importamos el controlador ORM en lugar del gestor de base de datos obsoleto
-from app.controllers.usuario_controller import UsuarioController
 from app.views.dashboard_view import DashboardView
+
+# 1. Definición del Servidor (Endpoint de Producción)
+API_BASE_URL = "https://sistema-creditos-tw1k.onrender.com"
 
 class LoginWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Sistema de Créditos - Acceso")
-        self.setFixedSize(350, 250) # UX: Tamaño fijo
-        self.controller = UsuarioController() # Instanciación del controlador central
+        self.setFixedSize(350, 250) 
+        # Arquitectura limpia: Eliminamos self.controller. La vista ya no gestiona lógica de negocio.
         self.setup_ui()
 
     def setup_ui(self):
@@ -19,31 +21,24 @@ class LoginWindow(QWidget):
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Titulo
         self.lbl_titulo = QLabel("Bienvenido al Sistema")
         self.lbl_titulo.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 15px;")
         
-        # Inputs
         self.txt_usuario = QLineEdit()
         self.txt_usuario.setPlaceholderText("Usuario")
         
         self.txt_password = QLineEdit()
         self.txt_password.setPlaceholderText("Contraseña")
-        self.txt_password.setEchoMode(QLineEdit.EchoMode.Password) # UX: Enmascarar texto
+        self.txt_password.setEchoMode(QLineEdit.EchoMode.Password)
         
-        # Botón
         self.btn_ingresar = QPushButton("Ingresar")
         self.btn_ingresar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_ingresar.setStyleSheet("background-color: #0078D7; color: white; padding: 8px; border-radius: 4px;")
         
-        # UX: Conectar la tecla Enter al botón
         self.txt_password.returnPressed.connect(self.btn_ingresar.click)
         self.txt_usuario.returnPressed.connect(self.btn_ingresar.click)
-
-        # Arquitectura: Conectar la Señal del clic con el Slot de validación
         self.btn_ingresar.clicked.connect(self.validar_acceso)
 
-        # Agregar todo al Layout
         layout.addWidget(self.lbl_titulo)
         layout.addWidget(self.txt_usuario)
         layout.addWidget(self.txt_password)
@@ -52,7 +47,7 @@ class LoginWindow(QWidget):
         self.setLayout(layout)
 
     def validar_acceso(self):
-        """Delega la validación al controlador ORM y maneja la transición de vistas"""
+        """Envía credenciales a la API de FastAPI mediante HTTP POST"""
         username = self.txt_usuario.text().strip()
         password = self.txt_password.text().strip()
 
@@ -61,19 +56,34 @@ class LoginWindow(QWidget):
             return
 
         try:
-            # 1. Petición al controlador (retorna un objeto Usuario de SQLAlchemy o None)
-            usuario_valido = self.controller.autenticar_usuario(username, password)
+            # 2. Configuración del Payload
+            # FastAPI (OAuth2) espera los datos en formato Form-Data, por eso usamos 'data=' y no 'json='
+            payload = {
+                "username": username,
+                "password": password
+            }
 
-            # 2. Evaluación de estado
-            if usuario_valido:
-                # 3. Transición inyectando propiedades del objeto al Dashboard
-                # (Nota técnica: asegúrate de que tu modelo Usuario tenga el atributo 'rol_id',
-                # de lo contrario ajusta a 'usuario_valido.rol')
-                self.dashboard = DashboardView(usuario_valido.id, getattr(usuario_valido, 'rol_id', 1))
+            # 3. Petición a la Nube (Ajusta el endpoint '/login' si tu router tiene otro prefijo)
+            # Timeout de 10s para evitar que la interfaz se congele indefinidamente si falla la red
+            respuesta = requests.post(f"{API_BASE_URL}/api/v1/auth/login", data=payload, timeout=60)
+
+
+            # 4. Evaluación de la Respuesta
+            if respuesta.status_code == 200:
+                datos = respuesta.json()
+                token = datos.get("access_token")
+                
+                # Deuda Técnica a resolver: Tu DashboardView actual espera (usuario_id, rol_id).
+                # En un entorno JWT real, esos datos van dentro del token o los pides a un endpoint /me.
+                # Por ahora le pasamos parámetros fijos para no romper el inicio del Dashboard.
+                self.dashboard = DashboardView(usuario_id=1, rol_id=1)
+                # En la siguiente iteración deberás pasarle el token: self.dashboard = DashboardView(token)
+                
                 self.dashboard.show()
                 self.close()
             else:
+                print(f"[DEBUG RESPUESTA]: {respuesta.status_code} | {respuesta.text}")
                 QMessageBox.warning(self, "Acceso Denegado", "El usuario no existe, está inactivo o la contraseña es incorrecta.")
 
-        except Exception as e:
-            QMessageBox.critical(self, "Error de Sistema", f"Fallo en la comunicación con el core de datos:\n{e}")
+        except requests.exceptions.RequestException as e:
+            QMessageBox.critical(self, "Error de Red", f"Fallo en la comunicación con el servidor:\n{e}")
