@@ -238,7 +238,42 @@ class DashboardView(QMainWindow):
         if not creditos_activos: 
             return QMessageBox.information(self, "Sin Deuda", "El cliente no tiene saldos pendientes.")
 
-        id_credito, monto_orig, saldo_actual, estado, fecha = creditos_activos[0]
+        # ==========================================
+        # INTERCEPTOR MULTI-CRÉDITO (UX OPTIMIZADA)
+        # ==========================================
+        if len(creditos_activos) == 1:
+            credito_seleccionado = creditos_activos[0]
+        else:
+            # Diccionario para enlazar el texto visual con los datos reales en memoria
+            mapa_creditos = {}
+            for c in creditos_activos:
+                fecha_str = c[4]
+                saldo_str = f"${float(c[2]):,.2f}"
+                
+                # UX: Lenguaje natural y directo para el cajero
+                texto_visual = f"Préstamo del {fecha_str}   --->   Resta: {saldo_str}  (Ref: {c[0]})"
+                mapa_creditos[texto_visual] = c
+            
+            opciones = list(mapa_creditos.keys())
+            
+            item, ok = QInputDialog.getItem(
+                self, 
+                "Múltiples Créditos Detectados", 
+                "El cliente tiene varias cuentas activas.\n¿A cuál préstamo se aplicará el cobro?", 
+                opciones, 
+                0, 
+                False
+            )
+            
+            if not ok or not item:
+                return # El usuario canceló la operación
+                
+            # Recuperamos la tupla exacta de forma directa usando la llave del diccionario
+            credito_seleccionado = mapa_creditos[item]
+        # ==========================================
+
+        # Desempaquetamos el crédito que pasó el filtro
+        id_credito, monto_orig, saldo_actual, estado, fecha = credito_seleccionado
         saldo_actual = float(saldo_actual)
         cuota_sugerida, semana_actual = self.pago_ctrl.obtener_metricas_cobro(id_credito)
 
@@ -261,6 +296,7 @@ class DashboardView(QMainWindow):
                 QMessageBox.information(self, "Éxito", "Abono procesado. Generando comprobante...")
                 self.cargar_datos()
                 try:
+                    import os
                     os.startfile(os.path.abspath(ruta_ticket))
                 except Exception as e:
                     print(f"Error al abrir PDF: {e}")

@@ -1,38 +1,40 @@
+# app/models/database.py
 import os
-import sys
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
 # ==========================================
-# TRAZADOR DE RUTAS DE ENTORNO (Heredado de la v1.0)
+# 1. RESOLUCIÓN DE RUTA ABSOLUTA
 # ==========================================
-if getattr(sys, 'frozen', False):
-    base_path = os.path.dirname(sys.executable)
-else:
-    base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# __file__ apunta a: sistema_creditos/app/models/database.py
+# Subimos 3 niveles para llegar a la carpeta raíz: sistema_creditos/
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ENV_PATH = BASE_DIR / ".env"
 
-ruta_env = os.path.join(base_path, '.env')
-load_dotenv(dotenv_path=ruta_env)
 # ==========================================
+# 2. CARGA DE VARIABLES DE ENTORNO
+# ==========================================
+# Forzamos a python-dotenv a leer el archivo físico exacto
+load_dotenv(dotenv_path=ENV_PATH)
 
-# Construcción de la URL de conexión (Corregido a DB_PASSWORD)
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASS = os.getenv("DB_PASSWORD", "")  # <-- Ajuste crítico
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "sistema_creditos")
+# Leemos la variable (apuntará a Supabase si descomentaste la línea correcta)
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# ==========================================
+# 3. BLINDAJE Y VALIDACIÓN
+# ==========================================
+if not SQLALCHEMY_DATABASE_URL:
+    raise ValueError(
+        f"CRÍTICO: No se encontró la variable DATABASE_URL.\n"
+        f"Ruta donde Python está buscando el archivo: {ENV_PATH}\n"
+        f"Asegúrate de que el archivo se llame '.env' y no '.env.txt'"
+    )
 
-# Configuración del motor y la sesión
-engine = create_engine(DATABASE_URL, echo=False)
+# ==========================================
+# 4. MOTOR ORM
+# ==========================================
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
