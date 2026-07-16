@@ -6,12 +6,22 @@ from app.models.usuario import Usuario
 from app.core.security import verificar_password, crear_token_acceso
 from app.schemas.token_schema import Token
 
+print(f"DEBUG: Atributos de Usuario detectados: {dir(Usuario)}")
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticación"])
+
 
 @router.post("/login", response_model=Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     """Valida credenciales y emite un JWT para acceso a la API."""
     db = SessionLocal()
+
+    # --- PRUEBA DE VERDAD ---
+    print("EJECUTANDO VERSIÓN DE auth_router.py: Verificando atributos de Usuario...")
+    if hasattr(Usuario, 'activo'):
+        print("ÉXITO: 'activo' existe en Usuario.")
+    if hasattr(Usuario, 'is_active'):
+        print("PELIGRO: 'is_active' existe en Usuario.")
+    # ------------------------
     try:
         # 1. Buscar al usuario activo en la base de datos
         usuario = db.query(Usuario).filter(Usuario.username == form_data.username, Usuario.activo == True).first()
