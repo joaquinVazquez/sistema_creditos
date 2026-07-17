@@ -6,7 +6,6 @@ from app.models.usuario import Usuario
 from app.core.security import verificar_password, crear_token_acceso
 from app.schemas.token_schema import Token
 
-print(f"DEBUG: Atributos de Usuario detectados: {dir(Usuario)}")
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticación"])
 
 
@@ -14,20 +13,15 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Autenticación"])
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     """Valida credenciales y emite un JWT para acceso a la API."""
     db = SessionLocal()
-
-    # --- PRUEBA DE VERDAD ---
-    print("EJECUTANDO VERSIÓN DE auth_router.py: Verificando atributos de Usuario...")
-    if hasattr(Usuario, 'activo'):
-        print("ÉXITO: 'activo' existe en Usuario.")
-    if hasattr(Usuario, 'is_active'):
-        print("PELIGRO: 'is_active' existe en Usuario.")
-    # ------------------------
     try:
         # 1. Buscar al usuario activo en la base de datos
-        usuario = db.query(Usuario).filter(Usuario.username == form_data.username, Usuario.activo == True).first()
-        
+        usuario = db.query(Usuario).filter(
+            Usuario.username == form_data.username,
+            Usuario.activo == True
+        ).first()
+
         # 2. Validación de credenciales
-        # NOTA DE MIGRACIÓN: Si en la v1.0 las contraseñas están en texto plano, 
+        # NOTA DE MIGRACIÓN: Si en la v1.0 las contraseñas están en texto plano,
         # reemplaza temporalmente 'verificar_password' por 'form_data.password == usuario.password_hash'
         if not usuario or not verificar_password(form_data.password, usuario.password_hash):
             raise HTTPException(
@@ -35,15 +29,20 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
                 detail="Usuario o contraseña incorrectos",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         # 3. Empaquetar payload y firmar JWT
         token_payload = {
-            "sub": str(usuario.id), 
+            "sub": str(usuario.id),
             "username": usuario.username
         }
         access_token = crear_token_acceso(data=token_payload)
-        
+
         return {"access_token": access_token, "token_type": "bearer"}
+
+    except HTTPException:
+        # Re-lanzamos tal cual los errores HTTP intencionales (401, 404, etc.)
+        # sin dejar que caigan en el except genérico de abajo.
+        raise
     except Exception as e:
         print(f"[ERROR AUTH]: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
