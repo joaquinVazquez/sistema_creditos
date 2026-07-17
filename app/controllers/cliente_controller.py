@@ -1,5 +1,6 @@
 # app/controllers/cliente_controller.py
-import requests
+from app.models.database import SessionLocal
+from app.models.clientes import Cliente
 
 class ClienteController:
     def __init__(self):
@@ -12,8 +13,8 @@ class ClienteController:
         try:
             # Filtro exclusivo de clientes activos (Soft Delete aplicado)
             clientes = db.query(Cliente).filter(Cliente.is_active == True).order_by(Cliente.id.desc()).all()
-            
-            # Compatibilidad inversa con PyQt6: devolvemos tuplas. 
+
+            # Compatibilidad inversa con PyQt6: devolvemos tuplas.
             # Mapeamos 'created_at' en reemplazo del antiguo 'fecha_registro'
             return [(c.rfc, c.nombre_completo, c.telefono, c.created_at) for c in clientes]
         except Exception as e:
@@ -27,8 +28,8 @@ class ClienteController:
         db = SessionLocal()
         try:
             nuevo_cliente = Cliente(
-                rfc=rfc, 
-                nombre_completo=nombre, 
+                rfc=rfc,
+                nombre_completo=nombre,
                 telefono=telefono,
                 direccion=direccion,
                 foto_path=foto_path,
@@ -58,19 +59,19 @@ class ClienteController:
             return None
         finally:
             db.close()
-    
+
     def eliminar_cliente(self, rfc):
         """
         Transición a Baja Lógica (Soft Delete).
-        En lugar de destruir el registro (DELETE) y violar la integridad referencial, 
+        En lugar de destruir el registro (DELETE) y violar la integridad referencial,
         se apaga la bandera is_active para auditoría.
         """
         db = SessionLocal()
         try:
             cliente = db.query(Cliente).filter(Cliente.rfc == rfc).first()
-            if not cliente: 
+            if not cliente:
                 return False
-            
+
             cliente.is_active = False
             db.commit()
             return True
@@ -100,13 +101,13 @@ class ClienteController:
         db = SessionLocal()
         try:
             cliente = db.query(Cliente).filter(Cliente.rfc == rfc_original).first()
-            if not cliente: 
+            if not cliente:
                 return False
-            
+
             cliente.rfc = datos_nuevos.get('rfc', cliente.rfc)
             cliente.nombre_completo = datos_nuevos.get('nombre', cliente.nombre_completo)
             cliente.telefono = datos_nuevos.get('telefono', cliente.telefono)
-            
+
             db.commit()
             return True
         except Exception as e:
