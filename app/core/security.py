@@ -5,7 +5,18 @@ import jwt
 import os
 
 # 1. Variables de Entorno para el Token
-SECRET_KEY = os.getenv("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7")
+# CRÍTICO: SECRET_KEY debe venir SIEMPRE de una variable de entorno.
+# Nunca hardcodear un valor por defecto aquí: si esta clave se filtra
+# (por ejemplo en un repositorio público), cualquiera puede firmar
+# tokens JWT falsos y saltarse el login.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError(
+        "CRÍTICO: No se encontró la variable de entorno SECRET_KEY.\n"
+        "Defínela en tu archivo .env (local) o en las variables de entorno "
+        "de Render (producción) antes de iniciar la aplicación."
+    )
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # El token durará 24 horas
 
@@ -13,7 +24,7 @@ def verificar_password(plain_password: str, hashed_password: str) -> bool:
     """Compara una contraseña en texto plano contra el hash usando bcrypt nativo."""
     # Convertimos la contraseña plana a bytes
     password_bytes = plain_password.encode('utf-8')
-    
+
     # Estandarizamos el hash proveniente de PostgreSQL a bytes
     if isinstance(hashed_password, str):
         hash_bytes = hashed_password.encode('utf-8')
@@ -21,7 +32,7 @@ def verificar_password(plain_password: str, hashed_password: str) -> bool:
         hash_bytes = hashed_password.tobytes()
     else:
         hash_bytes = hashed_password
-        
+
     try:
         return bcrypt.checkpw(password_bytes, hash_bytes)
     except Exception as e:
@@ -39,7 +50,7 @@ def crear_token_acceso(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    
+
     # Firmamos el token con nuestra llave secreta
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
