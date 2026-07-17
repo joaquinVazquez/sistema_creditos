@@ -1,12 +1,10 @@
 # app/routers/pago_router.py
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List
+from sqlalchemy.orm import Session # IMPORTANTE
 from app.schemas.pago_schema import PagoCreate, PagoResponse
 from app.controllers.pago_controller import PagoController
 from app.controllers.credito_controller import CreditoController
-
-# Importaciones de seguridad
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_db # IMPORTANTE: Importar get_db
 from app.models.usuario import Usuario
 
 router = APIRouter(prefix="/api/v1/pagos", tags=["Pagos"])
@@ -18,7 +16,7 @@ def registrar_abono(pago: PagoCreate, current_user: Usuario = Depends(get_curren
     """Procesa un abono y actualiza el saldo del crédito atómicamente (Ruta Protegida)."""
     exito = pago_ctrl.registrar_pago(
         credito_id=pago.credito_id,
-        usuario_id=pago.usuario_id,
+        usuario_id=current_user.id,
         monto=pago.monto
     )
     if not exito:
