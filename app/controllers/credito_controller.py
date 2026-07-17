@@ -1,7 +1,7 @@
 # app/controllers/credito_controller.py
 from datetime import date
 from sqlalchemy import func
-from app.models.database import SessionLocal
+#from app.models.database import SessionLocal
 from app.models.credito import Credito
 from app.models.clientes import Cliente
 from app.models.pago import Pago

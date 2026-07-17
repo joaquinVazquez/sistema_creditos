@@ -1,6 +1,5 @@
 # app/controllers/cliente_controller.py
-from app.models.database import SessionLocal
-from app.models.clientes import Cliente
+import requests
 
 class ClienteController:
     def __init__(self):
