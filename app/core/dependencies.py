@@ -34,7 +34,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get_db)):
         raise credentials_exception
     
     # Validamos que el usuario siga existiendo y esté activo en la base de datos
-    user = db.query(Usuario).filter(Usuario.username == username, Usuario.is_active == True).first()
+    user = db.query(Usuario).filter(Usuario.username == username, Usuario.activo == True).first()
     if user is None:
         raise credentials_exception
     return user
