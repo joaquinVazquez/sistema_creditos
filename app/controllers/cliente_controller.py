@@ -1,113 +1,97 @@
 # app/controllers/cliente_controller.py
-import requests
-
-# 1. Endpoint centralizado
-API_BASE_URL = "https://sistema-creditos-tw1k.onrender.com"
+from app.models.database import SessionLocal
+from app.models.clientes import Cliente
 
 class ClienteController:
-    def __init__(self, token: str):
-        """
-        Inyección de dependencias: El controlador ahora requiere el token JWT 
-        para autenticar las peticiones HTTP contra la API.
-        """
-        self.token = token
-        self.headers = {"Authorization": f"Bearer {self.token}"}
-        self.base_url = f"{API_BASE_URL}/api/v1/clientes"
+    def __init__(self):
+        # El backend no necesita token de requests, se conecta directo a la DB
+        pass
 
     def obtener_todos(self):
-        """Consume el endpoint GET /clientes y formatea para la tabla (UI)."""
+        db = SessionLocal()
         try:
-            respuesta = requests.get(self.base_url, headers=self.headers, timeout=15)
-            
-            if respuesta.status_code == 200:
-                clientes = respuesta.json()
-                # Compatibilidad inversa: Transformamos el JSON a la lista de tuplas que espera PyQt6
-                return [(c.get("rfc"), c.get("nombre_completo"), c.get("telefono"), c.get("created_at")) for c in clientes]
-            
-            print(f"[API HTTP {respuesta.status_code}] Error al obtener clientes: {respuesta.text}")
-            return []
-            
-        except requests.exceptions.RequestException as e:
-            print(f"[ERROR RED GET CLIENTES]: {e}")
-            return []
+            # Filtramos solo los activos usando la columna correcta
+            clientes = db.query(Cliente).filter(Cliente.activo == True).all()
+            return [(c.rfc, c.nombre_completo, c.telefono, c.created_at) for c in clientes]
+        finally:
+            db.close()
 
     def guardar_cliente(self, rfc, nombre, telefono, direccion=None, foto_path=None, ine_path=None):
-        """Consume el endpoint POST /clientes."""
-        payload = {
-            "rfc": rfc,
-            "nombre_completo": nombre,
-            "telefono": telefono,
-            "direccion": direccion,
-            "foto_path": foto_path,
-            "ine_path": ine_path
-        }
+        db = SessionLocal()
         try:
-            respuesta = requests.post(self.base_url, json=payload, headers=self.headers, timeout=10)
-            if respuesta.status_code in (200, 201):
-                return True
-                
-            print(f"[API HTTP {respuesta.status_code}] Error al guardar: {respuesta.text}")
+            nuevo_cliente = Cliente(
+                rfc=rfc,
+                nombre_completo=nombre,
+                telefono=telefono,
+                direccion=direccion,
+                foto_path=foto_path,
+                ine_path=ine_path,
+                activo=True
+            )
+            db.add(nuevo_cliente)
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            print(f"[ERROR DB GUARDAR CLIENTE]: {e}")
             return False
-            
-        except requests.exceptions.RequestException as e:
-            print(f"[ERROR RED POST CLIENTE]: {e}")
-            return False
+        finally:
+            db.close()
 
     def obtener_expediente(self, rfc):
-        """Consume el endpoint GET /clientes/{rfc} para extraer rutas físicas."""
+        db = SessionLocal()
         try:
-            respuesta = requests.get(f"{self.base_url}/{rfc}", headers=self.headers, timeout=10)
-            if respuesta.status_code == 200:
-                cliente = respuesta.json()
-                return (cliente.get("foto_path"), cliente.get("ine_path"))
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc, Cliente.activo == True).first()
+            if cliente:
+                return (cliente.foto_path, cliente.ine_path)
             return None
-        except requests.exceptions.RequestException as e:
-            print(f"[ERROR RED GET EXPEDIENTE]: {e}")
-            return None
+        finally:
+            db.close()
 
     def eliminar_cliente(self, rfc):
-        """Consume el endpoint DELETE /clientes/{rfc} (que ejecuta el Soft Delete en backend)."""
+        """Soft delete: solo cambia el estado activo a False"""
+        db = SessionLocal()
         try:
-            respuesta = requests.delete(f"{self.base_url}/{rfc}", headers=self.headers, timeout=10)
-            if respuesta.status_code == 200:
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc).first()
+            if cliente:
+                cliente.activo = False
+                db.commit()
                 return True
-                
-            print(f"[API HTTP {respuesta.status_code}] Error al eliminar: {respuesta.text}")
             return False
-        except requests.exceptions.RequestException as e:
-            print(f"[ERROR RED DELETE CLIENTE]: {e}")
+        except Exception as e:
+            db.rollback()
+            print(f"[ERROR DB ELIMINAR CLIENTE]: {e}")
             return False
+        finally:
+            db.close()
 
     def obtener_cliente_por_rfc(self, rfc):
-        """Consume el endpoint GET /clientes/{rfc} para prellenar formularios."""
+        db = SessionLocal()
         try:
-            respuesta = requests.get(f"{self.base_url}/{rfc}", headers=self.headers, timeout=10)
-            if respuesta.status_code == 200:
-                cliente = respuesta.json()
-                return (cliente.get("rfc"), cliente.get("nombre_completo"), cliente.get("telefono"))
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc, Cliente.activo == True).first()
+            if cliente:
+                return (cliente.rfc, cliente.nombre_completo, cliente.telefono)
             return None
-        except requests.exceptions.RequestException as e:
-            print(f"[ERROR RED GET CLIENTE RFC]: {e}")
-            return None
+        finally:
+            db.close()
 
     def actualizar_cliente(self, rfc_original, datos_nuevos):
-        """Consume el endpoint PUT o PATCH /clientes/{rfc}."""
-        # Adaptamos el diccionario 'datos_nuevos' al formato JSON esperado
-        payload = {
-            "rfc": datos_nuevos.get('rfc'),
-            "nombre_completo": datos_nuevos.get('nombre'),
-            "telefono": datos_nuevos.get('telefono')
-        }
-        # Filtramos valores None para no sobreescribir datos accidentalmente
-        payload = {k: v for k, v in payload.items() if v is not None}
-        
+        db = SessionLocal()
         try:
-            respuesta = requests.put(f"{self.base_url}/{rfc_original}", json=payload, headers=self.headers, timeout=10)
-            if respuesta.status_code == 200:
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc_original, Cliente.activo == True).first()
+            if cliente:
+                if 'rfc' in datos_nuevos: 
+                    cliente.rfc = datos_nuevos['rfc']
+                if 'nombre_completo' in datos_nuevos: 
+                    cliente.nombre_completo = datos_nuevos['nombre_completo']
+                if 'telefono' in datos_nuevos: 
+                    cliente.telefono = datos_nuevos['telefono']
+                db.commit()
                 return True
-                
-            print(f"[API HTTP {respuesta.status_code}] Error al actualizar: {respuesta.text}")
             return False
-        except requests.exceptions.RequestException as e:
-            print(f"[ERROR RED PUT CLIENTE]: {e}")
+        except Exception as e:
+            db.rollback()
+            print(f"[ERROR DB ACTUALIZAR CLIENTE]: {e}")
             return False
+        finally:
+            db.close()
