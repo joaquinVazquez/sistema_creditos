@@ -97,32 +97,3 @@ class ClienteController:
             return False
         finally:
             db.close()
-
-    def obtener_metricas_dashboard(self):
-        db = SessionLocal()
-        try:
-            # 1. Capital Activo
-            capital = db.query(func.coalesce(func.sum(Credito.saldo_actual), 0)).filter(
-                func.upper(Credito.estado) == 'ACTIVO'
-            ).scalar()
-
-            # 2. Ingresos del día de hoy
-            hoy = date.today()
-            ingresos = db.query(func.coalesce(func.sum(Pago.monto), 0)).filter(
-                func.date(Pago.fecha) == hoy
-            ).scalar()
-
-            # 3. Clientes con crédito activo
-            clientes = db.query(func.count(func.distinct(Credito.cliente_id))).filter(
-                func.upper(Credito.estado) == 'ACTIVO'
-            ).scalar()
-
-            return {
-                "capital_activo": float(capital),
-                "ingresos_hoy": float(ingresos),
-                "clientes_activos": int(clientes)
-            }
-        except Exception as e:
-            raise Exception(f"ERROR_KPI_REAL: {str(e)}")
-        finally:
-            db.close()

@@ -52,7 +52,6 @@ class CreditoController:
             db.close()
 
     def obtener_metricas_dashboard(self):
-        """Cálculo de KPIs financieros utilizando funciones de agregación del motor SQL."""
         db = SessionLocal()
         try:
             # 1. Capital Activo
@@ -60,25 +59,27 @@ class CreditoController:
                 func.upper(Credito.estado) == 'ACTIVO'
             ).scalar()
 
-            # 2. Ingresos del día de hoy
+            # 2. Ingresos del día
             hoy = date.today()
+            # Debug: imprimimos la fecha que estamos consultando
+            print(f"[DEBUG] Consultando pagos para la fecha: {hoy}")
+            
             ingresos = db.query(func.coalesce(func.sum(Pago.monto), 0)).filter(
                 func.date(Pago.fecha) == hoy
             ).scalar()
+            
+            # Debug: imprimimos qué encontró
+            print(f"[DEBUG] Ingresos encontrados: {ingresos}")
 
             # 3. Clientes con crédito activo
             clientes = db.query(func.count(func.distinct(Credito.cliente_id))).filter(
                 func.upper(Credito.estado) == 'ACTIVO'
             ).scalar()
 
-            # El router debe devolver un diccionario (JSON) para la API
             return {
                 "capital_activo": float(capital),
                 "ingresos_hoy": float(ingresos),
                 "clientes_activos": int(clientes)
             }
-        except Exception as e:
-            print(f"\n[ERROR ORM KPIs]: {e}\n")
-            return {"capital_activo": 0.0, "ingresos_hoy": 0.0, "clientes_activos": 0}
         finally:
             db.close()
