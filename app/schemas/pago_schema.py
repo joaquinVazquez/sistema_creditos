@@ -5,7 +5,7 @@ from decimal import Decimal
 
 class PagoCreate(BaseModel):
     credito_id: int
-    usuario_id: int
+    usuario_id: Optional[int] = None
     monto: float
 
 class PagoResponse(BaseModel):
