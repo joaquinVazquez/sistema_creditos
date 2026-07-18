@@ -11,6 +11,8 @@ from app.models.usuario import Usuario
 router = APIRouter(prefix="/api/v1/clientes", tags=["Clientes"])
 controller = ClienteController()
 
+# app/routers/cliente_router.py
+
 @router.get("/", response_model=List[ClienteResponse])
 def listar_clientes(current_user: Usuario = Depends(get_current_user)):
     """Retorna la lista de clientes (Ruta Protegida)."""
@@ -26,17 +28,22 @@ def listar_clientes(current_user: Usuario = Depends(get_current_user)):
             })
         return resultado
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # AQUÍ ESTÁ EL CAMBIO: Forzamos a que el error nos diga la verdad
+        raise HTTPException(status_code=500, detail=f"ERROR EN CLIENTES DETALLADO: {str(e)}")
 
 @router.post("/", status_code=201)
 def registrar_cliente(cliente: ClienteCreate, current_user: Usuario = Depends(get_current_user)):
     """Registra un nuevo cliente (Ruta Protegida)."""
-    exito = controller.guardar_cliente(
-        rfc=cliente.rfc,
-        nombre=cliente.nombre_completo,
-        telefono=cliente.telefono,
-        direccion=cliente.direccion
-    )
-    if not exito:
-        raise HTTPException(status_code=400, detail="Error al registrar o RFC duplicado.")
-    return {"mensaje": "Cliente registrado exitosamente", "rfc": cliente.rfc}
+    try:
+        exito = controller.guardar_cliente(
+            rfc=cliente.rfc,
+            nombre=cliente.nombre_completo,
+            telefono=cliente.telefono,
+            direccion=cliente.direccion
+        )
+        if not exito:
+            raise HTTPException(status_code=400, detail="Error en base de datos al guardar.")
+        return {"mensaje": "Cliente registrado exitosamente", "rfc": cliente.rfc}
+    except Exception as e:
+        # AQUÍ ESTÁ EL CAMBIO
+        raise HTTPException(status_code=500, detail=f"ERROR AL REGISTRAR CLIENTE: {str(e)}")
