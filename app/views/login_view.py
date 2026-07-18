@@ -2,6 +2,7 @@
 import requests
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt6.QtCore import Qt
+from app.core.session import SessionManager
 
 from app.views.dashboard_view import DashboardView
 
@@ -73,11 +74,8 @@ class LoginWindow(QWidget):
                 datos = respuesta.json()
                 token = datos.get("access_token")
                 
-                # Deuda Técnica a resolver: Tu DashboardView actual espera (usuario_id, rol_id).
-                # En un entorno JWT real, esos datos van dentro del token o los pides a un endpoint /me.
-                # Por ahora le pasamos parámetros fijos para no romper el inicio del Dashboard.
-                self.dashboard = DashboardView(usuario_id=1, rol_id=1)
-                # En la siguiente iteración deberás pasarle el token: self.dashboard = DashboardView(token)
+                # Inyección de dependencias: El token asume el control del estado
+                self.dashboard = DashboardView(token=token)
                 
                 self.dashboard.show()
                 self.close()

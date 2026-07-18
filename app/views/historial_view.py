@@ -7,10 +7,13 @@ class HistorialView(QDialog):
     def __init__(self, rfc, nombre, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Estado de Cuenta Detallado - {nombre}")
-        self.setMinimumSize(850, 600) # UX: Ventana más grande para que respire la información
+        self.setMinimumSize(850, 600) 
         
         self.rfc_cliente = rfc
-        self.controller = CreditoController()
+        
+        # INYECCIÓN INTELIGENTE: Extraemos el token del Dashboard sin romper firmas
+        token = parent.token if hasattr(parent, 'token') else ""
+        self.controller = CreditoController(token=token)
         
         # Aplicar diseño global moderno (QSS)
         self.setStyleSheet("""

@@ -1,118 +1,113 @@
 # app/controllers/cliente_controller.py
-from app.models.database import SessionLocal
-from app.models.clientes import Cliente
+import requests
+
+# 1. Endpoint centralizado
+API_BASE_URL = "https://sistema-creditos-tw1k.onrender.com"
 
 class ClienteController:
-    def __init__(self):
-        # Se elimina la dependencia de la conexión SQL cruda. La sesión se gestiona por método.
-        pass
+    def __init__(self, token: str):
+        """
+        Inyección de dependencias: El controlador ahora requiere el token JWT 
+        para autenticar las peticiones HTTP contra la API.
+        """
+        self.token = token
+        self.headers = {"Authorization": f"Bearer {self.token}"}
+        self.base_url = f"{API_BASE_URL}/api/v1/clientes"
 
     def obtener_todos(self):
-        """Retorna una lista de tuplas con los clientes activos (ORM)."""
-        db = SessionLocal()
+        """Consume el endpoint GET /clientes y formatea para la tabla (UI)."""
         try:
-            # Filtro exclusivo de clientes activos (Soft Delete aplicado)
-            clientes = db.query(Cliente).filter(Cliente.is_active == True).order_by(Cliente.id.desc()).all()
-
-            # Compatibilidad inversa con PyQt6: devolvemos tuplas.
-            # Mapeamos 'created_at' en reemplazo del antiguo 'fecha_registro'
-            return [(c.rfc, c.nombre_completo, c.telefono, c.created_at) for c in clientes]
-        except Exception as e:
-            print(f"[ERROR ORM LECTURA]: {e}")
+            respuesta = requests.get(self.base_url, headers=self.headers, timeout=15)
+            
+            if respuesta.status_code == 200:
+                clientes = respuesta.json()
+                # Compatibilidad inversa: Transformamos el JSON a la lista de tuplas que espera PyQt6
+                return [(c.get("rfc"), c.get("nombre_completo"), c.get("telefono"), c.get("created_at")) for c in clientes]
+            
+            print(f"[API HTTP {respuesta.status_code}] Error al obtener clientes: {respuesta.text}")
             return []
-        finally:
-            db.close()
+            
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR RED GET CLIENTES]: {e}")
+            return []
 
     def guardar_cliente(self, rfc, nombre, telefono, direccion=None, foto_path=None, ine_path=None):
-        """Inserta un nuevo cliente incluyendo rutas de expediente físico."""
-        db = SessionLocal()
+        """Consume el endpoint POST /clientes."""
+        payload = {
+            "rfc": rfc,
+            "nombre_completo": nombre,
+            "telefono": telefono,
+            "direccion": direccion,
+            "foto_path": foto_path,
+            "ine_path": ine_path
+        }
         try:
-            nuevo_cliente = Cliente(
-                rfc=rfc,
-                nombre_completo=nombre,
-                telefono=telefono,
-                direccion=direccion,
-                foto_path=foto_path,
-                ine_path=ine_path
-            )
-            db.add(nuevo_cliente)
-            db.commit()
-            return True
-        except Exception as e:
-            db.rollback()
-            print(f"\n[ERROR CRÍTICO AL GUARDAR CLIENTE]: {e}\n")
+            respuesta = requests.post(self.base_url, json=payload, headers=self.headers, timeout=10)
+            if respuesta.status_code in (200, 201):
+                return True
+                
+            print(f"[API HTTP {respuesta.status_code}] Error al guardar: {respuesta.text}")
             return False
-        finally:
-            db.close()
+            
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR RED POST CLIENTE]: {e}")
+            return False
 
     def obtener_expediente(self, rfc):
-        """Obtiene las rutas físicas de los documentos asociados a un cliente."""
-        db = SessionLocal()
+        """Consume el endpoint GET /clientes/{rfc} para extraer rutas físicas."""
         try:
-            cliente = db.query(Cliente).filter(Cliente.rfc == rfc, Cliente.is_active == True).first()
-            if cliente:
-                # getattr() previene colapsos si las columnas aún no existen en el modelo de SQLAlchemy
-                return (getattr(cliente, 'foto_path', None), getattr(cliente, 'ine_path', None))
+            respuesta = requests.get(f"{self.base_url}/{rfc}", headers=self.headers, timeout=10)
+            if respuesta.status_code == 200:
+                cliente = respuesta.json()
+                return (cliente.get("foto_path"), cliente.get("ine_path"))
             return None
-        except Exception as e:
-            print(f"[ERROR ORM LECTURA EXPEDIENTE]: {e}")
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR RED GET EXPEDIENTE]: {e}")
             return None
-        finally:
-            db.close()
 
     def eliminar_cliente(self, rfc):
-        """
-        Transición a Baja Lógica (Soft Delete).
-        En lugar de destruir el registro (DELETE) y violar la integridad referencial,
-        se apaga la bandera is_active para auditoría.
-        """
-        db = SessionLocal()
+        """Consume el endpoint DELETE /clientes/{rfc} (que ejecuta el Soft Delete en backend)."""
         try:
-            cliente = db.query(Cliente).filter(Cliente.rfc == rfc).first()
-            if not cliente:
-                return False
-
-            cliente.is_active = False
-            db.commit()
-            return True
-        except Exception as e:
-            db.rollback()
-            print(f"\n[ERROR CRÍTICO AL ELIMINAR CLIENTE (SOFT DELETE)]: {e}\n")
+            respuesta = requests.delete(f"{self.base_url}/{rfc}", headers=self.headers, timeout=10)
+            if respuesta.status_code == 200:
+                return True
+                
+            print(f"[API HTTP {respuesta.status_code}] Error al eliminar: {respuesta.text}")
             return False
-        finally:
-            db.close()
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR RED DELETE CLIENTE]: {e}")
+            return False
 
     def obtener_cliente_por_rfc(self, rfc):
-        """Extrae el registro completo para prellenar el formulario."""
-        db = SessionLocal()
+        """Consume el endpoint GET /clientes/{rfc} para prellenar formularios."""
         try:
-            cliente = db.query(Cliente).filter(Cliente.rfc == rfc, Cliente.is_active == True).first()
-            if cliente:
-                return (cliente.rfc, cliente.nombre_completo, cliente.telefono)
+            respuesta = requests.get(f"{self.base_url}/{rfc}", headers=self.headers, timeout=10)
+            if respuesta.status_code == 200:
+                cliente = respuesta.json()
+                return (cliente.get("rfc"), cliente.get("nombre_completo"), cliente.get("telefono"))
             return None
-        except Exception as e:
-            print(f"\n[ERROR ORM LECTURA CLIENTE]: {e}\n")
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR RED GET CLIENTE RFC]: {e}")
             return None
-        finally:
-            db.close()
 
     def actualizar_cliente(self, rfc_original, datos_nuevos):
-        """Sobrescribe los datos mediante la sesión transaccional."""
-        db = SessionLocal()
+        """Consume el endpoint PUT o PATCH /clientes/{rfc}."""
+        # Adaptamos el diccionario 'datos_nuevos' al formato JSON esperado
+        payload = {
+            "rfc": datos_nuevos.get('rfc'),
+            "nombre_completo": datos_nuevos.get('nombre'),
+            "telefono": datos_nuevos.get('telefono')
+        }
+        # Filtramos valores None para no sobreescribir datos accidentalmente
+        payload = {k: v for k, v in payload.items() if v is not None}
+        
         try:
-            cliente = db.query(Cliente).filter(Cliente.rfc == rfc_original).first()
-            if not cliente:
-                return False
-
-            cliente.rfc = datos_nuevos.get('rfc', cliente.rfc)
-            cliente.nombre_completo = datos_nuevos.get('nombre', cliente.nombre_completo)
-            cliente.telefono = datos_nuevos.get('telefono', cliente.telefono)
-
-            db.commit()
-            return True
-        except Exception as e:
-            db.rollback()
-            print(f"\n[ERROR ORM UPDATE]: {e}\n")
+            respuesta = requests.put(f"{self.base_url}/{rfc_original}", json=payload, headers=self.headers, timeout=10)
+            if respuesta.status_code == 200:
+                return True
+                
+            print(f"[API HTTP {respuesta.status_code}] Error al actualizar: {respuesta.text}")
             return False
-        finally:
-            db.close()
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR RED PUT CLIENTE]: {e}")
+            return False

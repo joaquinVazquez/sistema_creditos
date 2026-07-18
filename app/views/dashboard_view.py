@@ -21,21 +21,33 @@ from app.views.historial_view import HistorialView
 from app.utils.ticket_generator import generar_ticket_pago
 
 class DashboardView(QMainWindow):
-    def __init__(self, usuario_id=1, rol_id=1):
+    def __init__(self, token: str):
         super().__init__()
-        self.setWindowTitle("Sistema de Gestión de Créditos - Panel de Control")
-        self.setMinimumSize(1000, 650)
         
-        self.usuario_id = usuario_id
-        self.rol_id = rol_id
+        # Persistencia del token en memoria
+        self.token = token  
         
-        # Instancia de Controladores ORM
-        self.cliente_ctrl = ClienteController()
-        self.credito_ctrl = CreditoController()
-        self.pago_ctrl = PagoController()
+        # Auditoría para validación de la Prueba 1
+        print(f"\n[VALIDACIÓN JWT] Token recibido en Dashboard exitosamente.")
+        print(f"[VALIDACIÓN JWT] Cabecera/Payload: {self.token[:30]}...\n")
+
+        # ==========================================
+        # INYECCIÓN DE DEPENDENCIAS (LA SOLUCIÓN)
+        # ==========================================
+        # Instanciamos el controlador refactorizado pasándole la "llave"
+        self.cliente_ctrl = ClienteController(token=self.token)
         
+        # Como aún no refactorizamos estos dos, los instanciamos de la forma antigua.
+        # Más adelante cambiarán a CreditoController(token=self.token)
+        self.credito_ctrl = CreditoController(token=self.token)
+        self.pago_ctrl = PagoController(token=self.token)
+        # ==========================================
+
+        # Configuración de UI
+        self.setWindowTitle("Sistema de Créditos - Dashboard")
         self.setup_ui()
-        self.aplicar_rbac()
+        
+        # Llenamos la tabla al arrancar la aplicación
         self.cargar_datos()
 
     def setup_ui(self):
@@ -289,7 +301,7 @@ class DashboardView(QMainWindow):
                 QMessageBox.warning(self, "Error Operativo", "Monto inválido. No puede ser 0 ni mayor al saldo restante.")
                 return
 
-            if self.pago_ctrl.registrar_pago(id_credito, self.usuario_id, monto_abono):
+            if self.pago_ctrl.registrar_pago(id_credito, monto_abono):
                 nuevo_saldo = saldo_actual - monto_abono
                 ruta_ticket = generar_ticket_pago(rfc, nombre_cliente, monto_abono, nuevo_saldo)
                 
