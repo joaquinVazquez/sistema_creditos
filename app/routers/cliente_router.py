@@ -12,6 +12,14 @@ from app.models.usuario import Usuario
 router = APIRouter(prefix="/api/v1/clientes", tags=["Clientes"])
 controller = ClienteController()
 
+class ClienteCreate(BaseModel):
+    rfc: str
+    nombre_completo: str
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    foto_path: Optional[str] = None
+    ine_path: Optional[str] = None
+
 # --- ESQUEMA TEMPORAL PARA EDICIÓN ---
 class ClienteUpdate(BaseModel):
     rfc: Optional[str] = None
@@ -48,7 +56,9 @@ def registrar_cliente(cliente: ClienteCreate, current_user: Usuario = Depends(ge
             rfc=cliente.rfc,
             nombre=cliente.nombre_completo,
             telefono=cliente.telefono,
-            direccion=cliente.direccion
+            direccion=cliente.direccion,
+            foto_path=cliente.foto_path,
+            ine_path=cliente.ine_path
         )
         if not exito:
             raise HTTPException(status_code=400, detail="Error en base de datos al guardar.")
