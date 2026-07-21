@@ -18,6 +18,8 @@ class ClienteUpdate(BaseModel):
     nombre_completo: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None
+    foto_path: Optional[str] = None 
+    ine_path: Optional[str] = None
 
 # --- RUTAS EXISTENTES ---
 
