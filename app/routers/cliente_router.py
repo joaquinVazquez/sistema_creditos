@@ -52,7 +52,7 @@ def listar_clientes(current_user: Usuario = Depends(get_current_user)):
 def registrar_cliente(cliente: ClienteCreate, current_user: Usuario = Depends(get_current_user)):
     """Registra un nuevo cliente (Ruta Protegida)."""
     try:
-        exito = controller.guardar_cliente(
+        resultado = controller.guardar_cliente(
             rfc=cliente.rfc,
             nombre=cliente.nombre_completo,
             telefono=cliente.telefono,
@@ -60,9 +60,16 @@ def registrar_cliente(cliente: ClienteCreate, current_user: Usuario = Depends(ge
             foto_path=cliente.foto_path,
             ine_path=cliente.ine_path
         )
-        if not exito:
+        
+        if resultado == "DUPLICADO":
+            # Disparamos error 409 para que el frontend sepa que está repetido
+            raise HTTPException(status_code=409, detail="El RFC ya se encuentra registrado.")
+        elif resultado != "EXITO":
             raise HTTPException(status_code=400, detail="Error en base de datos al guardar.")
+            
         return {"mensaje": "Cliente registrado exitosamente", "rfc": cliente.rfc}
+    except HTTPException:
+        raise # Permite que los errores 409 y 400 pasen limpios
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ERROR AL REGISTRAR CLIENTE: {str(e)}")
 

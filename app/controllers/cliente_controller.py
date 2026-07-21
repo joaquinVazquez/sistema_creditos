@@ -22,6 +22,12 @@ class ClienteController:
     def guardar_cliente(self, rfc, nombre, telefono, direccion=None, foto_path=None, ine_path=None):
         db = SessionLocal()
         try:
+            # 1. Verificar si el RFC ya existe en la base de datos
+            cliente_existente = db.query(Cliente).filter(Cliente.rfc == rfc).first()
+            if cliente_existente:
+                return "DUPLICADO" # Retornamos una señal clara
+
+            # 2. Si no existe, procedemos a guardarlo
             nuevo_cliente = Cliente(
                 rfc=rfc,
                 nombre_completo=nombre,
@@ -29,15 +35,14 @@ class ClienteController:
                 direccion=direccion,
                 foto_path=foto_path,
                 ine_path=ine_path
-                # Quitamos activo=True porque no existe la columna
             )
             db.add(nuevo_cliente)
             db.commit()
-            return True
+            return "EXITO"
         except Exception as e:
             db.rollback()
             print(f"[ERROR DB GUARDAR CLIENTE]: {e}")
-            return False
+            return "ERROR"
         finally:
             db.close()
 
