@@ -210,16 +210,19 @@ class DashboardView(QMainWindow):
                 QMessageBox.warning(self, "Operación Abortada", "El RFC y Nombre Completo son obligatorios.")
                 return
 
-            exito = self.cliente_ctrl.guardar_cliente(
+            # Evaluamos la nueva cadena de texto
+            resultado = self.cliente_ctrl.guardar_cliente(
                 rfc=d['rfc'], nombre=d['nombre'], telefono=d['telefono'],
                 direccion=d['direccion'], foto_path=d['foto'], ine_path=d['ine']
             )
             
-            if exito:
+            if resultado == "EXITO":
                 QMessageBox.information(self, "Éxito", "Expediente de cliente registrado correctamente.")
                 self.cargar_datos()
+            elif resultado == "DUPLICADO":
+                QMessageBox.warning(self, "RFC Duplicado", f"El cliente con RFC '{d['rfc']}' ya existe en el sistema.")
             else:
-                QMessageBox.critical(self, "Error de Inserción", "No se pudo guardar el cliente. Revisa los logs.")
+                QMessageBox.critical(self, "Error de Inserción", "No se pudo guardar el cliente. Revisa tu conexión a internet o los logs.")
 
     def abrir_formulario_credito(self):
         fila = self.tabla.currentRow()
