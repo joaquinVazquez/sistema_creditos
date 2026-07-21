@@ -11,9 +11,9 @@ class Cliente(Base):
     telefono = Column(String(20))
     
     # Nuevos campos de expediente
-    direccion = Column(String(255), nullable=True)
-    foto_path = Column(String(500), nullable=True)
-    ine_path = Column(String(500), nullable=True)
+    direccion = Column(String, nullable=True)
+    foto_path = Column(String, nullable=True)
+    ine_path = Column(String, nullable=True)
     
     # Auditoría
     is_active = Column(Boolean, default=True)
