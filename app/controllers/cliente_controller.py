@@ -74,7 +74,15 @@ class ClienteController:
             # Quitamos el filtro de activo
             cliente = db.query(Cliente).filter(Cliente.rfc == rfc).first()
             if cliente:
-                return (cliente.rfc, cliente.nombre_completo, cliente.telefono)
+                # Retornamos un diccionario completo para que viaje como JSON al frontend
+                return {
+                    "rfc": cliente.rfc,
+                    "nombre_completo": cliente.nombre_completo,
+                    "telefono": cliente.telefono,
+                    "direccion": getattr(cliente, 'direccion', None),
+                    "foto_path": getattr(cliente, 'foto_path', None),
+                    "ine_path": getattr(cliente, 'ine_path', None)
+                }
             return None
         finally:
             db.close()
@@ -88,6 +96,11 @@ class ClienteController:
                 if 'rfc' in datos_nuevos: cliente.rfc = datos_nuevos['rfc']
                 if 'nombre_completo' in datos_nuevos: cliente.nombre_completo = datos_nuevos['nombre_completo']
                 if 'telefono' in datos_nuevos: cliente.telefono = datos_nuevos['telefono']
+                # AGREGADOS LOS CAMPOS FALTANTES:
+                if 'direccion' in datos_nuevos: cliente.direccion = datos_nuevos['direccion']
+                if 'foto_path' in datos_nuevos: cliente.foto_path = datos_nuevos['foto_path']
+                if 'ine_path' in datos_nuevos: cliente.ine_path = datos_nuevos['ine_path']
+                
                 db.commit()
                 return True
             return False
