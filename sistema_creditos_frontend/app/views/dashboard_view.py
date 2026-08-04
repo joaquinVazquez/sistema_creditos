@@ -18,7 +18,10 @@ from app.views.cliente_form import ClienteForm
 from app.views.credito_form import CreditoForm
 from app.views.pago_form import PagoForm
 from app.views.historial_view import HistorialView
-from app.utils.ticket_generator import generar_ticket_pago
+from app.utils.ticket_generator import generar_ticket_pago, generar_ticket_credito
+import platform
+import subprocess
+
 
 class DashboardView(QMainWindow):
     def __init__(self, token: str):
@@ -236,8 +239,39 @@ class DashboardView(QMainWindow):
                 QMessageBox.warning(self, "Operación Rechazada", "El monto a financiar debe ser mayor a $0.00.")
                 return
 
+            # Si el backend confirma el guardado, procedemos con el ticket
             if self.credito_ctrl.crear_credito(d['rfc'], d['monto'], d['tasa'], d['plazos']):
-                QMessageBox.information(self, "Éxito", "Crédito generado con éxito.")
+                
+                # --- INICIO DE INYECCIÓN DE TICKET ---
+                monto_prestado = float(d['monto'])
+                tasa_porc = float(d['tasa']) / 100
+                cuotas = int(d['plazos'])
+                
+                total_pagar = monto_prestado * (1 + tasa_porc)
+                monto_cuota = total_pagar / cuotas if cuotas > 0 else 0
+
+                datos_ticket = {
+                    "cliente": nombre,
+                    "monto_prestado": monto_prestado,
+                    "tasa_interes": d['tasa'],
+                    "total_pagar": total_pagar,
+                    "cuotas": cuotas,
+                    "monto_cuota": monto_cuota
+                }
+                
+                ruta_pdf = generar_ticket_credito(datos_ticket)
+                
+                # Apertura automática multiplataforma
+                try:
+                    if platform.system() == 'Windows':
+                        os.startfile(ruta_pdf)
+                    else:
+                        subprocess.call(['open', ruta_pdf])
+                except Exception as e:
+                    print(f"Error al abrir PDF: {e}")
+                # --- FIN DE INYECCIÓN DE TICKET ---
+
+                QMessageBox.information(self, "Éxito", "Crédito generado con éxito. Generando comprobante...")
                 self.cargar_datos()
             else:
                 QMessageBox.critical(self, "Error", "No se pudo procesar el crédito.")
