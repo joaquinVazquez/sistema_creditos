@@ -1,6 +1,8 @@
 # app/views/dashboard_view.py
 import csv
 import os
+import platform
+import subprocess
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QMessageBox, QFileDialog, QLabel, 
@@ -18,9 +20,8 @@ from app.views.cliente_form import ClienteForm
 from app.views.credito_form import CreditoForm
 from app.views.pago_form import PagoForm
 from app.views.historial_view import HistorialView
-from app.utils.ticket_generator import generar_ticket_pago, generar_ticket_credito
-import platform
-import subprocess
+from app.utils.ticket_generator import generar_ticket_pago, generar_ticket_credito, generar_ticket_corte
+
 
 
 class DashboardView(QMainWindow):
@@ -98,10 +99,15 @@ class DashboardView(QMainWindow):
         self.btn_historial.setStyleSheet("background-color: #17a2b8; color: white;")
         self.btn_historial.clicked.connect(self.abrir_historial)
 
+        self.btn_corte_caja = QPushButton("Corte de Caja")
+        self.btn_corte_caja.setStyleSheet("background-color: #6f42c1; color: white; font-weight: bold;")
+        self.btn_corte_caja.clicked.connect(self.generar_corte)
+
         self.layout_botones.addWidget(self.btn_nuevo_cliente)
         self.layout_botones.addWidget(self.btn_otorgar_credito)
         self.layout_botones.addWidget(self.btn_cobrar)
         self.layout_botones.addWidget(self.btn_historial)
+        self.layout_botones.addWidget(self.btn_corte_caja)
         self.layout_botones.addStretch()
         self.main_layout.addLayout(self.layout_botones)
 
@@ -358,6 +364,37 @@ class DashboardView(QMainWindow):
         rfc, nombre = self.tabla.item(fila, 0).text(), self.tabla.item(fila, 1).text()
         self.ventana_historial = HistorialView(rfc, nombre, self)
         self.ventana_historial.exec()
+
+    def generar_corte(self):
+        """Consume el endpoint de balance diario y detona el PDF."""
+        # 1. Confirmación de UX
+        respuesta = QMessageBox.question(
+            self, 
+            "Confirmación de Cierre", 
+            "¿Desea generar el Corte de Caja con los movimientos de hoy?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if respuesta == QMessageBox.StandardButton.Yes:
+            # 2. Llamada al Backend
+            datos_corte = self.credito_ctrl.obtener_corte_caja()
+            
+            if datos_corte:
+                try:
+                    # 3. Generación del Ticket Físico
+                    ruta_pdf = generar_ticket_corte(datos_corte)
+                    
+                    # 4. Apertura Automática
+                    if platform.system() == 'Windows':
+                        os.startfile(ruta_pdf)
+                    else:
+                        subprocess.call(['open', ruta_pdf])
+                        
+                    QMessageBox.information(self, "Corte Exitoso", "El ticket de corte de caja ha sido generado.")
+                except Exception as e:
+                    QMessageBox.critical(self, "Error de Sistema", f"No se pudo generar el PDF: {str(e)}")
+            else:
+                QMessageBox.critical(self, "Error de Conexión", "No se pudo obtener la información financiera del servidor. Revise su conexión.")
 
     def exportar_csv(self):
         ruta, _ = QFileDialog.getSaveFileName(self, "Exportar Datos", "", "CSV Files (*.csv)")

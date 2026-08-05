@@ -72,3 +72,30 @@ class CreditoController:
         except requests.exceptions.RequestException as e:
             print(f"[ERROR RED GET KPIs]: {e}")
             return (0.0, 0.0, 0)
+
+    def obtener_corte_caja(self, fecha: str = None) -> dict:
+        """Consume el endpoint del backend para obtener el balance diario."""
+        try:
+            # 1. Extraemos solo el dominio principal (ej. http://localhost:8000 o https://api.render.com)
+            # Dividimos la url base justo donde empieza /api/
+            dominio_base = self.base_url.split("/api/")[0] 
+            
+            # 2. Armamos la ruta absoluta y exacta
+            url = f"{dominio_base}/api/v1/dashboard/corte-caja"
+            
+            if fecha:
+                url += f"?fecha={fecha}"
+                
+            # AUDITORÍA: Esto aparecerá en tu terminal para que veas la URL final
+            print(f"[DEBUG URL CORTE DE CAJA] Disparando a: {url}")
+                
+            response = requests.get(url, headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"[ERROR CONTROLLER] Código: {response.status_code} | Detalle: {response.text}")
+                return None
+        except Exception as e:
+            print(f"[ERROR EXCEPTION] {e}")
+            return None

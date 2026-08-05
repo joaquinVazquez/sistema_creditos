@@ -7,6 +7,7 @@ HOME_DIR = os.path.expanduser("~")
 BASE_DIR = os.path.join(HOME_DIR, "Documents", "SistemaCreditos")
 RECIBOS_DIR = os.path.join(BASE_DIR, "media", "recibos")
 CREDITOS_DIR = os.path.join(BASE_DIR, "media", "creditos")
+CORTES_DIR = os.path.join(BASE_DIR, "media", "cortes_caja")
 
 def generar_ticket_pago(rfc_cliente, nombre_cliente, monto_abono, saldo_restante):
     """Genera un recibo en formato ticket (80mm) y devuelve la ruta física segura."""
@@ -123,6 +124,73 @@ def generar_ticket_credito(datos_credito: dict):
     # Guardar archivo
     nombre_archivo = f"CREDITO_{folio}.pdf"
     ruta_pdf = os.path.join(CREDITOS_DIR, nombre_archivo)
+    pdf.output(ruta_pdf)
+    
+    return ruta_pdf
+
+def generar_ticket_corte(datos_corte: dict):
+    """Genera el comprobante de corte de caja diario (80mm)."""
+    os.makedirs(CORTES_DIR, exist_ok=True)
+    
+    fecha_corte = datos_corte.get("fecha", datetime.now().strftime("%Y-%m-%d"))
+    fecha_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    
+    # Formato Ticket: 80mm de ancho
+    pdf = FPDF(orientation='P', unit='mm', format=(80, 150))
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=5)
+    
+    # Cabecera
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 5, "JESUSITO PASTELERIAS", ln=True, align='C')
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, "CORTE DE CAJA DIARIO", ln=True, align='C')
+    pdf.cell(0, 5, "-" * 30, ln=True, align='C')
+    
+    # Datos operativos
+    pdf.set_font("Arial", 'B', 9)
+    pdf.cell(0, 5, f"Fecha Op: {fecha_corte}", ln=True, align='L')
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, f"Impreso: {fecha_str}", ln=True, align='L')
+    pdf.cell(0, 5, f"Cajero: {datos_corte.get('solicitado_por', 'Admin')}", ln=True, align='L')
+    pdf.cell(0, 5, "-" * 30, ln=True, align='C')
+    
+    # Desglose Financiero
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(0, 6, "BALANCE FINANCIERO", ln=True, align='C')
+    
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(35, 5, "(+) Ingresos (Abonos):", align='L')
+    pdf.cell(0, 5, f"$ {datos_corte.get('ingresos', 0):,.2f}", ln=True, align='R')
+    
+    pdf.cell(35, 5, "(-) Egresos (Creditos):", align='L')
+    pdf.cell(0, 5, f"$ {datos_corte.get('egresos', 0):,.2f}", ln=True, align='R')
+    
+    pdf.cell(0, 2, "", ln=True) # Espaciador
+    
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(35, 6, "EFECTIVO NETO:", align='L')
+    pdf.cell(0, 6, f"$ {datos_corte.get('balance_neto', 0):,.2f}", ln=True, align='R')
+    
+    pdf.cell(0, 5, "-" * 30, ln=True, align='C')
+    
+    # Resumen Operativo
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(45, 5, "Total de Transacciones:", align='L')
+    pdf.cell(0, 5, f"{datos_corte.get('total_operaciones', 0)}", ln=True, align='R')
+    
+    # Pie de página
+    pdf.cell(0, 5, "-" * 30, ln=True, align='C')
+    pdf.set_font("Arial", 'I', 8)
+    pdf.cell(0, 5, "Anexar este ticket al efectivo físico.", ln=True, align='C')
+    pdf.cell(0, 5, "Firma de conformidad:", ln=True, align='C')
+    
+    pdf.cell(0, 15, "", ln=True) # Espacio para firma
+    pdf.cell(0, 5, "_______________________", ln=True, align='C')
+    
+    # Guardar archivo
+    nombre_archivo = f"CORTE_CAJA_{fecha_corte.replace('-', '')}.pdf"
+    ruta_pdf = os.path.join(CORTES_DIR, nombre_archivo)
     pdf.output(ruta_pdf)
     
     return ruta_pdf

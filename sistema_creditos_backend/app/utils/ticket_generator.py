@@ -4,6 +4,8 @@ from fpdf import FPDF
 
 # Directorio de salida
 RECIBOS_DIR = "media/recibos"
+CORTES_DIR = os.path.join(BASE_DIR, "media", "cortes_caja")
+
 
 def generar_ticket_pago(rfc_cliente, nombre_cliente, monto_abono, saldo_restante):
     """Genera un recibo en formato ticket (80mm) y devuelve la ruta física."""
@@ -57,3 +59,4 @@ def generar_ticket_pago(rfc_cliente, nombre_cliente, monto_abono, saldo_restante
     pdf.output(ruta_pdf)
     
     return ruta_pdf
+
