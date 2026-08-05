@@ -4,13 +4,11 @@ from app.schemas.dashboard_schema import DashboardResponse
 from app.controllers.credito_controller import CreditoController
 from datetime import datetime, date
 
-# --- TUS IMPORTACIONES REALES DE BASE DE DATOS Y MODELOS ---
 from app.models.database import SessionLocal
 from app.models.pago import Pago
 from app.models.credito import Credito
 from sqlalchemy import func
 
-# Importaciones de seguridad
 from app.core.dependencies import get_current_user
 from app.models.usuario import Usuario
 
@@ -35,7 +33,7 @@ def obtener_kpis(current_user: Usuario = Depends(get_current_user)):
 def obtener_corte_caja(fecha: date = None, current_user: Usuario = Depends(get_current_user)):
     """
     Calcula el balance diario de caja: Ingresos (Pagos) y Egresos (Créditos otorgados).
-    Usa SQLAlchemy y SessionLocal para consultar la base de datos de forma segura.
+    Usa los atributos reales: Credito.monto_original y Credito.fecha_inicio.
     """
     if not fecha:
         fecha = datetime.now().date()
@@ -43,23 +41,22 @@ def obtener_corte_caja(fecha: date = None, current_user: Usuario = Depends(get_c
     db = SessionLocal()
     try:
         # 1. Calcular Ingresos (Suma de abonos en la tabla 'pagos' para la fecha)
-        # Filtramos por la fecha de la transacción (asumiendo campo 'fecha' o 'created_at')
         total_ingresos = db.query(func.sum(Pago.monto))\
             .filter(func.date(Pago.fecha) == fecha)\
             .scalar()
         
         ingresos = float(total_ingresos) if total_ingresos else 0.0
 
-        # 2. Calcular Egresos (Suma de montos prestados en la tabla 'creditos' para la fecha)
-        total_egresos = db.query(func.sum(Credito.monto_prestado))\
-            .filter(func.date(Credito.fecha) == fecha)\
+        # 2. Calcular Egresos (Suma de Credito.monto_original para la fecha_inicio)
+        total_egresos = db.query(func.sum(Credito.monto_original))\
+            .filter(func.date(Credito.fecha_inicio) == fecha)\
             .scalar()
             
         egresos = float(total_egresos) if total_egresos else 0.0
 
         # 3. Conteo de operaciones del día
         count_pagos = db.query(Pago).filter(func.date(Pago.fecha) == fecha).count()
-        count_creditos = db.query(Credito).filter(func.date(Credito.fecha) == fecha).count()
+        count_creditos = db.query(Credito).filter(func.date(Credito.fecha_inicio) == fecha).count()
 
         balance_efectivo = ingresos - egresos
 
