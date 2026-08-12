@@ -10,12 +10,19 @@ class ClienteController:
     def __init__(self):
         pass
 
-    def obtener_todos(self):
+    def obtener_todos(self, skip: int = 0, limit: int = 100):
+        """
+        Extrae un bloque delimitado de clientes para optimizar el uso de memoria operativa.
+        Por defecto, retorna los primeros 100 registros.
+        """
         db = SessionLocal()
         try:
-            # Quitamos el .filter(Cliente.activo == True)
-            clientes = db.query(Cliente).all()
+            # Aplicamos segmentación y ordenamos para mostrar los registros más recientes primero
+            clientes = db.query(Cliente).order_by(Cliente.id.desc()).offset(skip).limit(limit).all()
             return [(c.rfc, c.nombre_completo, c.telefono, c.created_at) for c in clientes]
+        except Exception as e:
+            print(f"[ERROR DB OBTENER CLIENTES]: {e}")
+            return []
         finally:
             db.close()
 

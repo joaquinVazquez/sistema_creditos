@@ -32,10 +32,11 @@ class ClienteUpdate(BaseModel):
 # --- RUTAS EXISTENTES ---
 
 @router.get("/", response_model=List[ClienteResponse])
-def listar_clientes(current_user: Usuario = Depends(get_current_user)):
-    """Retorna la lista de clientes (Ruta Protegida)."""
+def listar_clientes(skip: int = 0, limit: int = 50, current_user: Usuario = Depends(get_current_user)):
+    """Retorna el directorio de clientes de forma segmentada para una gestión eficiente de recursos."""
     try:
-        clientes_tuplas = controller.obtener_todos()
+        # Transferimos los límites operativos al controlador
+        clientes_tuplas = controller.obtener_todos(skip=skip, limit=limit)
         resultado = []
         for c in clientes_tuplas:
             resultado.append({
@@ -46,7 +47,7 @@ def listar_clientes(current_user: Usuario = Depends(get_current_user)):
             })
         return resultado
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"ERROR EN CLIENTES DETALLADO: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ERROR EN AUDITORÍA DE CLIENTES: {str(e)}")
 
 @router.post("/", status_code=201)
 def registrar_cliente(cliente: ClienteCreate, current_user: Usuario = Depends(get_current_user)):
