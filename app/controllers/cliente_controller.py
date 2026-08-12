@@ -10,16 +10,19 @@ class ClienteController:
     def __init__(self):
         pass
 
-    def obtener_todos(self, skip: int = 0, limit: int = 100):
-        """
-        Extrae un bloque delimitado de clientes para optimizar el uso de memoria operativa.
-        Por defecto, retorna los primeros 100 registros.
-        """
+    def obtener_todos(self, skip: int = 0, limit: int = 100, incluir_inactivos: bool = False):
         db = SessionLocal()
         try:
-            # Aplicamos segmentación y ordenamos para mostrar los registros más recientes primero
-            clientes = db.query(Cliente).order_by(Cliente.id.desc()).offset(skip).limit(limit).all()
-            return [(c.rfc, c.nombre_completo, c.telefono, c.created_at) for c in clientes]
+            query = db.query(Cliente)
+            
+            # Si NO queremos los inactivos, aplicamos el filtro
+            if not incluir_inactivos:
+                query = query.filter(Cliente.activo == True)
+                
+            clientes = query.order_by(Cliente.id.desc()).offset(skip).limit(limit).all()
+            
+            # Agregamos c.activo al final de la tupla
+            return [(c.rfc, c.nombre_completo, c.telefono, c.created_at, c.activo) for c in clientes]
         except Exception as e:
             print(f"[ERROR DB OBTENER CLIENTES]: {e}")
             return []
@@ -64,18 +67,20 @@ class ClienteController:
         finally:
             db.close()
 
-    def eliminar_cliente(self, rfc):
+    def archivar_cliente(self, rfc: str) -> bool:
+        """Borrado lógico: marca al cliente como inactivo sin destruir su historial financiero."""
         db = SessionLocal()
         try:
             cliente = db.query(Cliente).filter(Cliente.rfc == rfc).first()
-            if cliente:
-                db.delete(cliente) # Cambiamos a borrar físicamente si no existe columna 'activo'
-                db.commit()
-                return True
-            return False
+            if not cliente:
+                return False
+            
+            cliente.activo = False # Lo escondemos en lugar de borrarlo
+            db.commit()
+            return True
         except Exception as e:
             db.rollback()
-            print(f"[ERROR DB ELIMINAR CLIENTE]: {e}")
+            print(f"[ERROR DB ARCHIVAR CLIENTE]: {e}")
             return False
         finally:
             db.close()
