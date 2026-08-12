@@ -7,6 +7,7 @@ class ClienteBase(BaseModel):
     rfc: str
     nombre_completo: str
     telefono: Optional[str] = None
+    activo: Optional[bool] = True
 
 class ClienteCreate(ClienteBase):
     direccion: Optional[str] = None

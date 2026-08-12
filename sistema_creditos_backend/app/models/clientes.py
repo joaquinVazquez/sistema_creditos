@@ -9,6 +9,7 @@ class Cliente(Base):
     rfc = Column(String(13), unique=True, index=True, nullable=False)
     nombre_completo = Column(String(100), nullable=False)
     telefono = Column(String(20))
+    activo = Column(Boolean, default=True)
     
     # Nuevos campos de expediente
     direccion = Column(String, nullable=True)

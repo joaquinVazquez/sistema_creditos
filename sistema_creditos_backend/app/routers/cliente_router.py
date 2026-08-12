@@ -32,18 +32,19 @@ class ClienteUpdate(BaseModel):
 # --- RUTAS EXISTENTES ---
 
 @router.get("/", response_model=List[ClienteResponse])
-def listar_clientes(skip: int = 0, limit: int = 50, current_user: Usuario = Depends(get_current_user)):
-    """Retorna el directorio de clientes de forma segmentada para una gestión eficiente de recursos."""
+def listar_clientes(skip: int = 0, limit: int = 50, incluir_inactivos: bool = False, current_user: Usuario = Depends(get_current_user)):
+    """Retorna el directorio de clientes, con opción a incluir archivados."""
     try:
-        # Transferimos los límites operativos al controlador
-        clientes_tuplas = controller.obtener_todos(skip=skip, limit=limit)
+        # Pasamos el nuevo parámetro al controlador
+        clientes_tuplas = controller.obtener_todos(skip=skip, limit=limit, incluir_inactivos=incluir_inactivos)
         resultado = []
         for c in clientes_tuplas:
             resultado.append({
                 "rfc": c[0],
                 "nombre_completo": c[1],
                 "telefono": c[2],
-                "created_at": c[3]
+                "created_at": c[3],
+                "activo": c[4] # <-- Agregamos el estado para el frontend
             })
         return resultado
     except Exception as e:
@@ -101,3 +102,14 @@ def actualizar_cliente(rfc_original: str, cliente_data: ClienteUpdate, current_u
         return {"mensaje": "Cliente actualizado exitosamente"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ERROR AL ACTUALIZAR: {str(e)}")
+
+@router.patch("/{rfc}/archivar", status_code=200)
+def archivar_cliente(rfc: str, current_user: Usuario = Depends(get_current_user)):
+    """Oculta un cliente del directorio principal (Soft Delete)."""
+    try:
+        exito = controller.archivar_cliente(rfc)
+        if not exito:
+            raise HTTPException(status_code=404, detail="Cliente no encontrado.")
+        return {"mensaje": "Cliente archivado correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ERROR AL ARCHIVAR CLIENTE: {str(e)}")
