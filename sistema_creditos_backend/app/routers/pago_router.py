@@ -13,3 +13,11 @@ def registrar_abono(pago: PagoCreate, current_user: Usuario = Depends(get_curren
     exito = pago_ctrl.registrar_pago(credito_id=pago.credito_id, usuario_id=current_user.id, monto=pago.monto)
     if not exito: raise HTTPException(status_code=400, detail="Error transaccional al procesar el abono.")
     return {"mensaje": "Abono registrado correctamente"}
+
+@router.delete("/revertir/{pago_id}", status_code=200)
+def revertir_abono(pago_id: int, current_user: Usuario = Depends(get_current_user)):
+    """Permite cancelar un pago mal aplicado (Requiere autenticación)."""
+    exito = pago_ctrl.revertir_pago(pago_id)
+    if not exito:
+        raise HTTPException(status_code=400, detail="No se pudo revertir el pago o el registro no existe.")
+    return {"mensaje": "Pago revertido y saldo restaurado exitosamente."}
