@@ -85,6 +85,24 @@ class ClienteController:
         finally:
             db.close()
 
+    def desarchivar_cliente(self, rfc: str) -> bool:
+        """Borrado lógico inverso: marca al cliente como activo nuevamente."""
+        db = SessionLocal()
+        try:
+            cliente = db.query(Cliente).filter(Cliente.rfc == rfc).first()
+            if not cliente:
+                return False
+            
+            cliente.activo = True # Volvemos a mostrar el perfil
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            print(f"[ERROR DB DESARCHIVAR CLIENTE]: {e}")
+            return False
+        finally:
+            db.close()
+
     def obtener_cliente_por_rfc(self, rfc):
         db = SessionLocal()
         try:

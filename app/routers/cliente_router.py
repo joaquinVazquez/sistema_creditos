@@ -113,3 +113,14 @@ def archivar_cliente(rfc: str, current_user: Usuario = Depends(get_current_user)
         return {"mensaje": "Cliente archivado correctamente"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ERROR AL ARCHIVAR CLIENTE: {str(e)}")
+
+@router.patch("/{rfc}/desarchivar", status_code=200)
+def desarchivar_cliente(rfc: str, current_user: Usuario = Depends(get_current_user)):
+    """Restaura un cliente del archivo (Soft Delete Inverso)."""
+    try:
+        exito = controller.desarchivar_cliente(rfc)
+        if not exito:
+            raise HTTPException(status_code=404, detail="Cliente no encontrado.")
+        return {"mensaje": "Cliente reactivado correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ERROR AL REACTIVAR CLIENTE: {str(e)}")
