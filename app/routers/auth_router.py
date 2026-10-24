@@ -33,11 +33,20 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
         # 3. Empaquetar payload y firmar JWT
         token_payload = {
             "sub": str(usuario.id),
-            "username": usuario.username
+            "username": usuario.username,
+            "rol_id": usuario.rol_id
         }
         access_token = crear_token_acceso(data=token_payload)
 
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {
+            "access_token": access_token, 
+            "token_type": "bearer",
+            "usuario": {
+                "id": usuario.id,
+                "username": usuario.username,
+                "rol_id": usuario.rol_id
+            }
+        }
 
     except HTTPException:
         # Re-lanzamos tal cual los errores HTTP intencionales (401, 404, etc.)
