@@ -19,7 +19,8 @@ credito_ctrl = CreditoController()
 def obtener_kpis(current_user: Usuario = Depends(get_current_user)):
     """Retorna los indicadores principales financieros del día (Ruta Protegida)."""
     try:
-        kpis = credito_ctrl.obtener_metricas_dashboard()
+        # INYECCIÓN MULTI-TENANT
+        kpis = credito_ctrl.obtener_metricas_dashboard(current_user.empresa_id)
         return {
             "capital_activo": kpis.get("capital_activo", 0.0),
             "ingresos_hoy": kpis.get("ingresos_hoy", 0.0),
@@ -31,32 +32,36 @@ def obtener_kpis(current_user: Usuario = Depends(get_current_user)):
 
 @router.get("/corte-caja")
 def obtener_corte_caja(fecha: date = None, current_user: Usuario = Depends(get_current_user)):
-    """
-    Calcula el balance diario de caja: Ingresos (Pagos) y Egresos (Créditos otorgados).
-    Usa los atributos reales: Credito.monto_original y Credito.fecha_inicio.
-    """
+    """Calcula el balance diario de caja Multi-tenant."""
     if not fecha:
         fecha = datetime.now().date()
         
     db = SessionLocal()
     try:
-        # 1. Calcular Ingresos (Suma de abonos en la tabla 'pagos' para la fecha)
+        # 1. Calcular Ingresos (FILTRO MULTI-TENANT)
         total_ingresos = db.query(func.sum(Pago.monto))\
-            .filter(func.date(Pago.fecha) == fecha)\
+            .filter(func.date(Pago.fecha) == fecha, Pago.empresa_id == current_user.empresa_id)\
             .scalar()
         
         ingresos = float(total_ingresos) if total_ingresos else 0.0
 
-        # 2. Calcular Egresos (Suma de Credito.monto_original para la fecha_inicio)
+        # 2. Calcular Egresos (FILTRO MULTI-TENANT)
         total_egresos = db.query(func.sum(Credito.monto_original))\
-            .filter(func.date(Credito.fecha_inicio) == fecha)\
+            .filter(func.date(Credito.fecha_inicio) == fecha, Credito.empresa_id == current_user.empresa_id)\
             .scalar()
             
         egresos = float(total_egresos) if total_egresos else 0.0
 
-        # 3. Conteo de operaciones del día
-        count_pagos = db.query(Pago).filter(func.date(Pago.fecha) == fecha).count()
-        count_creditos = db.query(Credito).filter(func.date(Credito.fecha_inicio) == fecha).count()
+        # 3. Conteo de operaciones del día (FILTRO MULTI-TENANT)
+        count_pagos = db.query(Pago).filter(
+            func.date(Pago.fecha) == fecha, 
+            Pago.empresa_id == current_user.empresa_id
+        ).count()
+        
+        count_creditos = db.query(Credito).filter(
+            func.date(Credito.fecha_inicio) == fecha, 
+            Credito.empresa_id == current_user.empresa_id
+        ).count()
 
         balance_efectivo = ingresos - egresos
 

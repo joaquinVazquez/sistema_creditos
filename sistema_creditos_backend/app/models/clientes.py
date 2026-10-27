@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+# app/models/clientes.py
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from app.models.database import Base
 
@@ -7,16 +8,13 @@ class Cliente(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     rfc = Column(String(13), unique=True, index=True, nullable=False)
-    nombre_completo = Column(String(100), nullable=False)
-    telefono = Column(String(20))
+    nombre_completo = Column(String(255), nullable=False)
+    telefono = Column(String(20), nullable=True)
+    direccion = Column(String(255), nullable=True)
+    foto_path = Column(String(255), nullable=True)
+    ine_path = Column(String(255), nullable=True)
     activo = Column(Boolean, default=True)
-    
-    # Nuevos campos de expediente
-    direccion = Column(String, nullable=True)
-    foto_path = Column(String, nullable=True)
-    ine_path = Column(String, nullable=True)
-    
-    # Auditoría
-    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # COLUMNA MULTI-TENANT (Faltaba esta declaración)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, default=1)

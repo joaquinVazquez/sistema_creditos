@@ -3,6 +3,11 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
 import os
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+from app.models.database import SessionLocal
+from app.models.usuario import Usuario
 
 # 1. Variables de Entorno para el Token
 # CRÍTICO: SECRET_KEY debe venir SIEMPRE de una variable de entorno.
@@ -54,3 +59,44 @@ def crear_token_acceso(data: dict) -> str:
     # Firmamos el token con nuestra llave secreta
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+# Le indica a FastAPI dónde está la ruta de login para extraer el token
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Candado principal: Valida el token y devuelve al usuario que hace la petición."""
+    credenciales_invalidas = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudieron validar las credenciales",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        # 1. Desencriptar el token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise credenciales_invalidas
+            
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="El token ha expirado. Inicie sesión nuevamente.")
+    except jwt.PyJWTError:
+        raise credenciales_invalidas
+
+    # 2. Verificar que el usuario siga existiendo y esté activo en la BD
+    usuario = db.query(Usuario).filter(
+        Usuario.id == int(user_id), 
+        Usuario.activo == True
+    ).first()
+    
+    if usuario is None:
+        raise credenciales_invalidas
+        
+    return usuario

@@ -16,7 +16,16 @@ def registrar_abono(pago: PagoCreate, current_user: Usuario = Depends(get_curren
 
 @router.delete("/revertir/{pago_id}", status_code=200)
 def revertir_abono(pago_id: int, current_user: Usuario = Depends(get_current_user)):
-    """Permite cancelar un pago mal aplicado (Requiere autenticación)."""
+    """Permite cancelar un pago mal aplicado (Solo Administrador)."""
+    
+    # 1. Validación estricta de Rol (1 = Admin, 2 = Cajero)
+    if current_user.rol_id != 1:
+        raise HTTPException(
+            status_code=403, 
+            detail="Acceso denegado. Solo un Administrador puede revertir pagos."
+        )
+
+    # 2. Lógica normal de reversión
     exito = pago_ctrl.revertir_pago(pago_id)
     if not exito:
         raise HTTPException(status_code=400, detail="No se pudo revertir el pago o el registro no existe.")
