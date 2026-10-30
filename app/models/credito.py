@@ -6,6 +6,7 @@ class Credito(Base):
     __tablename__ = "creditos"
 
     id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True, default=1) # <-- NUEVA COLUMNA
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     monto_original = Column(Numeric(10, 2), nullable=False)
     tasa_interes_global = Column(Numeric(5, 2), nullable=False)

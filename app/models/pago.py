@@ -1,3 +1,4 @@
+# app/models/pago.py
 from sqlalchemy import Column, Integer, Numeric, DateTime, ForeignKey
 from datetime import datetime
 from sqlalchemy.sql import func
@@ -7,6 +8,7 @@ class Pago(Base):
     __tablename__ = "pagos"
 
     id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True, default=1) # <-- NUEVA COLUMNA
     credito_id = Column(Integer, ForeignKey("creditos.id"), nullable=False)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     monto = Column(Numeric(10, 2), nullable=False)

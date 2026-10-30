@@ -77,21 +77,17 @@ class CreditoController:
         db = SessionLocal()
         try:
             # 1. Capital Activo (FILTRO MULTI-TENANT)
-            capital = db.query(func.coalesce(func.sum(Credito.saldo_actual), 0)).filter(
+            capital = db.query(func.sum(Credito.saldo_actual)).filter(
                 func.upper(Credito.estado) == 'ACTIVO',
                 Credito.empresa_id == empresa_id
             ).scalar()
 
             # 2. Ingresos del día (FILTRO MULTI-TENANT)
             hoy = date.today()
-            print(f"[DEBUG] Consultando pagos para la fecha: {hoy} de la empresa: {empresa_id}")
-            
-            ingresos = db.query(func.coalesce(func.sum(Pago.monto), 0)).filter(
+            ingresos = db.query(func.sum(Pago.monto)).filter(
                 func.date(Pago.fecha) == hoy,
                 Pago.empresa_id == empresa_id
             ).scalar()
-            
-            print(f"[DEBUG] Ingresos encontrados: {ingresos}")
 
             # 3. Clientes con crédito activo (FILTRO MULTI-TENANT)
             clientes = db.query(func.count(func.distinct(Credito.cliente_id))).filter(
@@ -99,10 +95,19 @@ class CreditoController:
                 Credito.empresa_id == empresa_id
             ).scalar()
 
+            # Validación segura en Python (si scalar() devuelve None, usamos 0)
             return {
-                "capital_activo": float(capital),
-                "ingresos_hoy": float(ingresos),
-                "clientes_activos": int(clientes)
+                "capital_activo": float(capital) if capital is not None else 0.0,
+                "ingresos_hoy": float(ingresos) if ingresos is not None else 0.0,
+                "clientes_activos": int(clientes) if clientes is not None else 0
+            }
+        except Exception as e:
+            print(f"[ERROR METRICAS DASHBOARD]: {e}")
+            # Fallback seguro para evitar que el frontend colapse
+            return {
+                "capital_activo": 0.0,
+                "ingresos_hoy": 0.0,
+                "clientes_activos": 0
             }
         finally:
             db.close()
